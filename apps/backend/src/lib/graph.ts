@@ -11,7 +11,7 @@ import { Message, ConversationSummary } from '@threadmerge/shared';
 export function getGraphClient(accessToken: string): Client {
   return Client.init({
     authProvider: (done) => done(null, accessToken),
-    fetchOptions: { timeout: 30000 },
+    
   });
 }
 

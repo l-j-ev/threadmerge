@@ -18,6 +18,6 @@ conversationsRouter.get('/', requireAuth, async (req: AuthedRequest, res: Respon
  */
 conversationsRouter.get('/:id/messages', requireAuth, async (req: AuthedRequest, res: Response) => {
   const client = getGraphClient(req.graphToken!);
-  const messages = await getConversationMessages(client, req.params.id);
+  const messages = await getConversationMessages(client, req.params.id as string);
   res.json(messages);
 });
