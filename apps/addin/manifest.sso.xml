@@ -6,7 +6,7 @@
            xsi:type="MailApp">
 
   <Id>c3399ec5-7478-4e25-99bf-e87bdc3c237a</Id>
-  <Version>2.0.0.0</Version>
+  <Version>1.0.0.1</Version>
   <ProviderName>ThreadMerge</ProviderName>
   <DefaultLocale>en-GB</DefaultLocale>
   <DisplayName DefaultValue="ThreadMerge"/>
@@ -103,6 +103,20 @@
           <bt:String id="MergeButton.Tooltip" DefaultValue="Merge two email threads with controlled disclosure"/>
         </bt:LongStrings>
       </Resources>
+
+      <WebApplicationInfo>
+        <Id>c3399ec5-7478-4e25-99bf-e87bdc3c237a</Id>
+        <Resource>api://c3399ec5-7478-4e25-99bf-e87bdc3c237a</Resource>
+        <Scopes>
+          <Scope>access_as_user</Scope>
+          <Scope>Mail.Read</Scope>
+          <Scope>Mail.ReadWrite</Scope>
+          <Scope>Mail.Send</Scope>
+          <Scope>User.Read</Scope>
+          <Scope>profile</Scope>
+          <Scope>openid</Scope>
+        </Scopes>
+      </WebApplicationInfo>
     </VersionOverrides>
   </VersionOverrides>
 </OfficeApp>
