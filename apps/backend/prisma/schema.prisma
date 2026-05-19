@@ -1,0 +1,97 @@
+// ThreadMerge Prisma schema
+// Defines tenants, users, templates, audit logs, and tenant settings.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id              String   @id @default(uuid())
+  azureTenantId   String   @unique
+  displayName     String?
+  createdAt       DateTime @default(now())
+
+  users           User[]
+  templates       Template[]
+  auditLogs       AuditLogEntry[]
+  settings        TenantSettings?
+
+  @@index([azureTenantId])
+}
+
+model User {
+  id              String   @id @default(uuid())
+  azureUserId     String   @unique
+  email           String
+  displayName     String?
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt       DateTime @default(now())
+  lastSeenAt      DateTime @default(now())
+
+  templates       Template[]
+  auditLogs       AuditLogEntry[]
+
+  @@index([tenantId])
+  @@index([email])
+}
+
+model Template {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  isShared        Boolean  @default(false)
+  // Stored as JSON: array of { pattern, isRegex, replacement, description }
+  redactionRules  Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([tenantId])
+}
+
+model AuditLogEntry {
+  id                      String   @id @default(uuid())
+  userId                  String
+  user                    User     @relation(fields: [userId], references: [id])
+  tenantId                String
+  tenant                  Tenant   @relation(fields: [tenantId], references: [id])
+  timestamp               DateTime @default(now())
+  threadAId               String
+  threadBId               String
+  threadASubject          String?
+  threadBSubject          String?
+  includedMessageCount    Int
+  excludedMessageCount    Int
+  redactionCount          Int
+  recipientCount          Int
+  internalRecipientCount  Int
+  externalRecipientCount  Int
+  // Array of email addresses
+  recipientAddresses      Json
+  subject                 String
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([timestamp])
+}
+
+model TenantSettings {
+  id                  String   @id @default(uuid())
+  tenantId            String   @unique
+  tenant              Tenant   @relation(fields: [tenantId], references: [id])
+  enforceAuditLogging Boolean  @default(true)
+  allowExternalMerge  Boolean  @default(true)
+  // Array of { pattern, isRegex, replacement, description }
+  defaultRedactions   Json?
+  updatedAt           DateTime @updatedAt
+}
