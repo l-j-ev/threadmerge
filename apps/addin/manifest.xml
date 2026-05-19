@@ -105,8 +105,8 @@
       </Resources>
 
       <WebApplicationInfo>
-        <Id>REPLACE-WITH-YOUR-AZURE-AD-CLIENT-ID</Id>
-        <Resource>api://REPLACE-WITH-YOUR-AZURE-AD-CLIENT-ID</Resource>
+        <Id>6fe6dfbc-3590-45b4-b1dc-54df71c4126f</Id>
+        <Resource>api://6fe6dfbc-3590-45b4-b1dc-54df71c4126f</Resource>
         <Scopes>
           <Scope>access_as_user</Scope>
           <Scope>Mail.Read</Scope>
