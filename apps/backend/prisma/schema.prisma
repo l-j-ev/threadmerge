@@ -15,7 +15,6 @@ model Tenant {
   azureTenantId   String   @unique
   displayName     String?
   createdAt       DateTime @default(now())
-
   users           User[]
   templates       Template[]
   auditLogs       AuditLogEntry[]
@@ -33,7 +32,6 @@ model User {
   tenant          Tenant   @relation(fields: [tenantId], references: [id])
   createdAt       DateTime @default(now())
   lastSeenAt      DateTime @default(now())
-
   templates       Template[]
   auditLogs       AuditLogEntry[]
 
@@ -66,10 +64,27 @@ model AuditLogEntry {
   tenantId                String
   tenant                  Tenant   @relation(fields: [tenantId], references: [id])
   timestamp               DateTime @default(now())
+
+  // Mode of operation: 'merge' or 'inject'
+  mode                    String   @default("merge")
+
+  // Existing thread fields - retained for backwards compatibility.
+  // For merge: A and B are the two source threads.
+  // For inject: A is the source thread, B is the destination thread.
   threadAId               String
   threadBId               String
   threadASubject          String?
   threadBSubject          String?
+
+  // New semantic fields - populated for new entries (nullable for old rows).
+  // For merge mode: both null (use threadAId/threadBId instead).
+  // For inject mode: sourceThreadId == threadAId, destinationThreadId == threadBId.
+  sourceThreadId          String?
+  destinationThreadId     String?
+
+  // The user's note (only populated for inject mode)
+  note                    String?
+
   includedMessageCount    Int
   excludedMessageCount    Int
   redactionCount          Int
@@ -83,6 +98,7 @@ model AuditLogEntry {
   @@index([userId])
   @@index([tenantId])
   @@index([timestamp])
+  @@index([mode])
 }
 
 model TenantSettings {

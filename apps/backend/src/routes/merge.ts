@@ -120,6 +120,7 @@ mergeRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response)
   const auditLog = await prisma.auditLogEntry.create({
     data: {
       userId: user.id,
+      mode: 'merge',
       tenantId: tenant.id,
       threadAId: body.threadAId,
       threadBId: body.threadBId,
