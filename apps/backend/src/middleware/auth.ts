@@ -37,7 +37,12 @@ export async function requireAuth(
     req.graphToken = graphToken;
     next();
   } catch (error: any) {
-    console.error('Auth middleware error:', error.message || error);
-    res.status(401).json({ error: 'Authentication failed', detail: error.message });
+  console.error('Auth middleware error:', error);
+  console.error('Token (first 50 chars):', ssoToken.substring(0, 50));
+  res.status(401).json({ 
+    error: 'Authentication failed', 
+    detail: error.message,
+    name: error.name,
+  });
   }
 }

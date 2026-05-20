@@ -36,29 +36,57 @@ export interface DecodedSSOToken {
   scp?: string;
 }
 
-/**
- * Validates an Office SSO token by checking signature, audience, and issuer.
- */
 export async function validateSSOToken(token: string): Promise<DecodedSSOToken> {
+  // Diagnostic: decode the token header and payload without verification first
+  // This tells us what audience, issuer, and signing key the token claims
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    throw new Error(`Token is not a valid JWT (got ${parts.length} parts)`);
+  }
+
+  try {
+    const header = JSON.parse(Buffer.from(parts[0], 'base64').toString());
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    console.log('=== JWT DIAGNOSTIC ===');
+    console.log('Header:', JSON.stringify(header, null, 2));
+    console.log('Payload (sensitive fields only):', JSON.stringify({
+      aud: payload.aud,
+      iss: payload.iss,
+      tid: payload.tid,
+      oid: payload.oid,
+      scp: payload.scp,
+      ver: payload.ver,
+      preferred_username: payload.preferred_username,
+      app_displayname: payload.app_displayname,
+    }, null, 2));
+    console.log('======================');
+  } catch (err) {
+    console.error('Failed to decode token for diagnostics:', err);
+  }
+
   return new Promise((resolve, reject) => {
     jwt.verify(
       token,
       getSigningKey,
       {
-        audience: `api://${process.env.AZURE_CLIENT_ID}`,
+        audience: [
+        `api://${process.env.AZURE_CLIENT_ID}`,
+        process.env.AZURE_CLIENT_ID!,
+      ],
         algorithms: ['RS256'],
-        // For multi-tenant: validate issuer is from Microsoft's identity platform
-        issuer: undefined, // We'll do issuer validation manually below
+        issuer: undefined,
       },
       (err, decoded) => {
-        if (err) return reject(err);
+        if (err) {
+          console.error('JWT verify error:', err.name, err.message);
+          return reject(err);
+        }
         const token = decoded as DecodedSSOToken & { iss?: string };
 
-        // Manual issuer check for multi-tenant
         if (
           !token.iss ||
-          !token.iss.startsWith('https://login.microsoftonline.com/') &&
-          !token.iss.startsWith('https://sts.windows.net/')
+          (!token.iss.startsWith('https://login.microsoftonline.com/') &&
+           !token.iss.startsWith('https://sts.windows.net/'))
         ) {
           return reject(new Error(`Invalid issuer: ${token.iss}`));
         }

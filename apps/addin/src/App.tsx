@@ -1,28 +1,37 @@
 import { useEffect, useState } from 'react';
-import { getSSOToken } from './lib/auth';
+import { getAuthToken } from './lib/auth';
 import { api } from './lib/api';
 
 export default function App() {
   const [status, setStatus] = useState<string>('Initialising...');
   const [user, setUser] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
+
+  async function authenticate() {
+    try {
+      setError(null);
+      setStatus('Signing in...');
+      const token = await getAuthToken();
+      setStatus('Loading user...');
+      const data = await api.me(token);
+      setUser(data.user);
+      setStatus('Ready');
+      setNeedsSignIn(false);
+    } catch (err: any) {
+      console.error('Auth error:', err);
+      setError(err.message || 'Unknown error');
+      setStatus('Failed');
+      setNeedsSignIn(true);
+    }
+  }
 
   useEffect(() => {
-    async function init() {
-      try {
-        setStatus('Authenticating...');
-        const token = await getSSOToken();
-        setStatus('Loading user...');
-        const data = await api.me(token);
-        setUser(data.user);
-        setStatus('Ready');
-      } catch (err: any) {
-        console.error('Init error:', err);
-        setError(err.message || 'Unknown error');
-        setStatus('Failed');
-      }
-    }
-    init();
+  // Don't auto-trigger auth on mount.
+  // Dialog API doesn't work reliably during the initial mount lifecycle.
+  // User clicks "Sign in" button to start the flow.
+  setStatus('Click sign in to begin');
+  setNeedsSignIn(true);
   }, []);
 
   return (
@@ -47,11 +56,19 @@ export default function App() {
             <div className="text-xs">{error}</div>
           </div>
         )}
+        {needsSignIn && (
+          <button
+            onClick={authenticate}
+            className="mt-3 px-4 py-2 bg-brand-500 text-white rounded hover:bg-brand-600 text-sm"
+          >
+            Sign in with Microsoft
+          </button>
+        )}
       </div>
 
       {user && (
         <div className="mt-6 p-3 bg-brand-50 border border-brand-100 rounded text-brand-700 text-sm">
-          Stage 3 complete. UI for picking threads, customisation, and sending will be built out in Stages 5 and 6.
+          Stage 3 complete. Merge UI coming in Stages 5 and 6.
         </div>
       )}
     </div>

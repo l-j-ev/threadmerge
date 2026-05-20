@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ThreadMerge - Signing in</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+<body>
+  <p style="font-family: 'Segoe UI', sans-serif; padding: 20px; color: #323130;">
+    Redirecting to sign-in...
+  </p>
+  <script>
+    Office.onReady(() => {
+      // Get the auth URL from the query string (passed by the parent)
+      const params = new URLSearchParams(window.location.search);
+      const authUrl = params.get('authUrl');
+      if (authUrl) {
+        window.location.replace(authUrl);
+      } else {
+        document.body.innerHTML = '<p style="color: red;">Missing authUrl parameter</p>';
+      }
+    });
+  </script>
+</body>
+</html>

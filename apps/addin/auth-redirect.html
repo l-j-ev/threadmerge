@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ThreadMerge - Authenticating</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+<body>
+  <p style="font-family: 'Segoe UI', sans-serif; padding: 20px; color: #323130;">
+    Completing sign-in...
+  </p>
+  <script>
+    Office.onReady(() => {
+      // The OAuth response comes back in the URL fragment (#access_token=...)
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+
+      const accessToken = params.get('access_token');
+      const expiresIn = params.get('expires_in');
+      const error = params.get('error');
+      const errorDescription = params.get('error_description');
+
+      const message = {
+        access_token: accessToken,
+        expires_in: expiresIn ? parseInt(expiresIn, 10) : 3600,
+        error: error,
+        error_description: errorDescription,
+      };
+
+      // Send the token back to the parent task pane
+      Office.context.ui.messageParent(JSON.stringify(message));
+    });
+  </script>
+</body>
+</html>
