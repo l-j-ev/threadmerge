@@ -1,5 +1,5 @@
 // ThreadMerge Prisma schema
-// Defines tenants, users, templates, audit logs, and tenant settings.
+// Defines tenants, users, templates, audit logs, captured messages, and tenant settings.
 
 generator client {
   provider = "prisma-client-js"
@@ -48,7 +48,6 @@ model Template {
   tenantId        String
   tenant          Tenant   @relation(fields: [tenantId], references: [id])
   isShared        Boolean  @default(false)
-  // Stored as JSON: array of { pattern, isRegex, replacement, description }
   redactionRules  Json
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -69,20 +68,16 @@ model AuditLogEntry {
   mode                    String   @default("merge")
 
   // Existing thread fields - retained for backwards compatibility.
-  // For merge: A and B are the two source threads.
-  // For inject: A is the source thread, B is the destination thread.
   threadAId               String
   threadBId               String
   threadASubject          String?
   threadBSubject          String?
 
-  // New semantic fields - populated for new entries (nullable for old rows).
-  // For merge mode: both null (use threadAId/threadBId instead).
-  // For inject mode: sourceThreadId == threadAId, destinationThreadId == threadBId.
+  // Semantic fields for inject mode
   sourceThreadId          String?
   destinationThreadId     String?
 
-  // The user's note (only populated for inject mode)
+  // User's note (inject mode)
   note                    String?
 
   includedMessageCount    Int
@@ -91,9 +86,12 @@ model AuditLogEntry {
   recipientCount          Int
   internalRecipientCount  Int
   externalRecipientCount  Int
-  // Array of email addresses
   recipientAddresses      Json
   subject                 String
+
+  // Verification feature
+  capturedMessages        CapturedMessage[]
+  recipientTokens         RecipientToken[]
 
   @@index([userId])
   @@index([tenantId])
@@ -107,7 +105,52 @@ model TenantSettings {
   tenant              Tenant   @relation(fields: [tenantId], references: [id])
   enforceAuditLogging Boolean  @default(true)
   allowExternalMerge  Boolean  @default(true)
-  // Array of { pattern, isRegex, replacement, description }
   defaultRedactions   Json?
   updatedAt           DateTime @updatedAt
+}
+
+// =========================================================================
+// Verification feature
+// =========================================================================
+
+/// One row per source message captured during a merge or inject operation.
+/// Holds the cryptographic hash and minimal public metadata.
+model CapturedMessage {
+  id                String        @id @default(uuid())
+  auditLogId        String
+  auditLog          AuditLogEntry @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
+
+  // Graph identifiers
+  graphMessageId    String
+  conversationId    String?
+
+  // The hash itself
+  contentHash       String        @unique
+  hashAlgorithm     String        @default("sha256")
+
+  // Metadata captured at hash time (for public verify page)
+  capturedAt        DateTime      @default(now())
+  fromAddress       String?
+  fromDomain        String?
+  originalSentAt    DateTime?
+  recipientCount    Int?
+  hadAttachments    Boolean       @default(false)
+  attachmentCount   Int           @default(0)
+
+  @@index([contentHash])
+  @@index([auditLogId])
+}
+
+/// One token per recipient per send. Used in the authenticated tier of verification.
+/// Embedded as a query param in the recipient's verify link.
+model RecipientToken {
+  id               String        @id @default(uuid())
+  token            String        @unique
+  auditLogId       String
+  auditLog         AuditLogEntry @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
+  recipientAddress String
+  createdAt        DateTime      @default(now())
+
+  @@index([token])
+  @@index([auditLogId])
 }

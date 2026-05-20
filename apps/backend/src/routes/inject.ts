@@ -9,6 +9,7 @@ import {
 } from '../lib/graph';
 import { classifyRecipients } from '../lib/merge';
 import { escapeHtml } from '../lib/textExtraction';
+import { captureMessage } from '../lib/hashing';
 import { prisma } from '../lib/db';
 import type {
   InjectPreviewRequest,
@@ -194,6 +195,13 @@ injectRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response
       attachments: attachmentsToAttach,
     });
 
+
+    console.log('[inject/send] DIAGNOSTIC: reached capture block, source.id =', source.id);
+    // Capture source message hash for verification
+    console.log('[inject/send] Capturing source message hash...');
+    const capturedRecord = await captureMessage(client, source.id);
+    console.log(`[inject/send] Captured hash: ${capturedRecord.contentHash.slice(0, 8)}...`);
+
     // Audit log
     const userEmail = req.user!.email;
     const { internal, external } = classifyRecipients(body.recipients, userEmail);
@@ -225,6 +233,20 @@ injectRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response
         externalRecipientCount: external.length,
         subject: body.subject,
         recipientAddresses: body.recipients.map((r) => r.address),
+        capturedMessages: {
+          create: [{
+            graphMessageId: capturedRecord.graphMessageId,
+            conversationId: capturedRecord.conversationId,
+            contentHash: capturedRecord.contentHash,
+            hashAlgorithm: capturedRecord.hashAlgorithm,
+            fromAddress: capturedRecord.fromAddress,
+            fromDomain: capturedRecord.fromDomain,
+            originalSentAt: capturedRecord.originalSentAt,
+            recipientCount: capturedRecord.recipientCount,
+            hadAttachments: capturedRecord.hadAttachments,
+            attachmentCount: capturedRecord.attachmentCount,
+          }],
+        },
       },
     });
 

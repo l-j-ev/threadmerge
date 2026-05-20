@@ -7,6 +7,7 @@ import {
   classifyRecipients,
   detectWarnings,
 } from '../lib/merge';
+import { captureMessages } from '../lib/hashing';
 import { prisma } from '../lib/db';
 import { MergePreviewRequest, MergeSendRequest, Message } from '@threadmerge/shared';
 
@@ -14,7 +15,6 @@ export const mergeRouter = Router();
 
 /**
  * Builds a preview of the merged email without actually sending it.
- * Returns the merged HTML body, deduplicated recipient list, and any warnings.
  */
 mergeRouter.post('/preview', requireAuth, async (req: AuthedRequest, res: Response) => {
   const body = req.body as MergePreviewRequest;
@@ -26,15 +26,11 @@ mergeRouter.post('/preview', requireAuth, async (req: AuthedRequest, res: Respon
   ]);
 
   const allMessages = [...threadA, ...threadB];
-
-  // Filter to only included messages
   const includedSet = new Set(body.includedMessageIds);
   const includedMessages = allMessages.filter((m) => includedSet.has(m.id));
 
-  // Sort by user-specified order if provided, else chronologically
   const orderMap = new Map<string, number>();
   body.messageOrder.forEach((id, idx) => orderMap.set(id, idx));
-
   const orderedMessages: Message[] =
     body.messageOrder.length > 0
       ? [...includedMessages].sort(
@@ -44,11 +40,12 @@ mergeRouter.post('/preview', requireAuth, async (req: AuthedRequest, res: Respon
         )
       : [...includedMessages].sort(
           (a, b) =>
-            new Date(a.receivedDateTime).getTime() - new Date(b.receivedDateTime).getTime()
+            new Date(a.receivedDateTime).getTime() -
+            new Date(b.receivedDateTime).getTime()
         );
 
   const mergedBody = buildMergedBody(orderedMessages, body.redactions);
-  const recipients = collectRecipients(orderedMessages, req.user!.email);
+  const recipients = collectRecipients(orderedMessages, body.recipients);
   const userEmail = req.user!.email;
   const { internal, external } = classifyRecipients(recipients, userEmail);
   const warnings = detectWarnings(orderedMessages, recipients, userEmail);
@@ -59,11 +56,13 @@ mergeRouter.post('/preview', requireAuth, async (req: AuthedRequest, res: Respon
     internalRecipients: internal,
     externalRecipients: external,
     warnings,
+    messages: orderedMessages,
   });
 });
 
 /**
- * Executes the merge: builds the email, sends it, writes the audit log.
+ * Sends the merged email, captures hashes of all included source messages,
+ * and writes an audit log entry with linked CapturedMessage rows.
  */
 mergeRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response) => {
   const body = req.body as MergeSendRequest;
@@ -81,7 +80,6 @@ mergeRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response)
 
   const orderMap = new Map<string, number>();
   body.messageOrder.forEach((id, idx) => orderMap.set(id, idx));
-
   const orderedMessages: Message[] =
     body.messageOrder.length > 0
       ? [...includedMessages].sort(
@@ -91,7 +89,8 @@ mergeRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response)
         )
       : [...includedMessages].sort(
           (a, b) =>
-            new Date(a.receivedDateTime).getTime() - new Date(b.receivedDateTime).getTime()
+            new Date(a.receivedDateTime).getTime() -
+            new Date(b.receivedDateTime).getTime()
         );
 
   const mergedBody = buildMergedBody(orderedMessages, body.redactions);
@@ -105,6 +104,14 @@ mergeRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response)
     toRecipients: body.recipients.map((r) => ({ emailAddress: { address: r.address } })),
   });
 
+  // Capture hashes for all included messages (downloads attachment binaries)
+  console.log(`[merge/send] Capturing ${orderedMessages.length} message hash(es)...`);
+  const capturedRecords = await captureMessages(
+    client,
+    orderedMessages.map((m) => m.id)
+  );
+  console.log(`[merge/send] Captured ${capturedRecords.length} hash(es).`);
+
   // Find the database tenant + user
   const tenant = await prisma.tenant.findUniqueOrThrow({
     where: { azureTenantId: req.user!.azureTenantId },
@@ -113,7 +120,6 @@ mergeRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response)
     where: { azureUserId: req.user!.azureUserId },
   });
 
-  // Determine thread subjects for the log
   const threadASubject = threadA[0]?.subject || null;
   const threadBSubject = threadB[0]?.subject || null;
 
@@ -134,6 +140,20 @@ mergeRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response)
       externalRecipientCount: external.length,
       recipientAddresses: body.recipients.map((r) => r.address),
       subject: body.subject,
+      capturedMessages: {
+        create: capturedRecords.map((r) => ({
+          graphMessageId: r.graphMessageId,
+          conversationId: r.conversationId,
+          contentHash: r.contentHash,
+          hashAlgorithm: r.hashAlgorithm,
+          fromAddress: r.fromAddress,
+          fromDomain: r.fromDomain,
+          originalSentAt: r.originalSentAt,
+          recipientCount: r.recipientCount,
+          hadAttachments: r.hadAttachments,
+          attachmentCount: r.attachmentCount,
+        })),
+      },
     },
   });
 
