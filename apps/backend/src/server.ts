@@ -9,6 +9,8 @@ import { conversationsRouter } from './routes/conversations';
 import { mergeRouter } from './routes/merge';
 import { auditRouter } from './routes/audit';
 import { templatesRouter } from './routes/templates';
+import { messagesRouter } from './routes/messages';
+import { injectRouter } from './routes/inject';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -49,6 +51,8 @@ app.use('/api/conversations', conversationsRouter);
 app.use('/api/merge', mergeRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/templates', templatesRouter);
+app.use('/api/messages', messagesRouter);
+app.use('/api/inject', injectRouter);
 
 // Error handler must be last
 app.use(errorHandler);

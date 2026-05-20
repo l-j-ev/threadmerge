@@ -132,3 +132,63 @@ export interface RedactionRule {
   replacement: string;
   description?: string;
 }
+
+// =========================================================================
+// Inject mode types (add an email to a running thread)
+// =========================================================================
+
+export interface MessageAttachment {
+  id: string;
+  name: string;
+  contentType: string;
+  size: number;
+  isInline: boolean;
+}
+
+export interface MessageSummary {
+  id: string;
+  conversationId: string;
+  subject: string;
+  from: { emailAddress: EmailAddress };
+  receivedDateTime: string;
+  bodyPreview: string;
+  hasAttachments: boolean;
+}
+
+export interface MessageDetail extends Message {
+  hasAttachments: boolean;
+  attachments: MessageAttachment[];
+}
+
+export interface InjectPreviewRequest {
+  sourceMessageId: string;
+  destThreadId: string;
+  replyToMessageId: string;
+  note: string;
+  redactions: Redaction[];
+  includedAttachmentIds: string[];
+  recipients: EmailAddress[];
+}
+
+export interface InjectPreviewResponse {
+  // The HTML that will form the reply body (your note + quoted source)
+  replyBody: string;
+  // Subject auto-derived from the destination thread
+  subject: string;
+  // Recipients (echoed back from request, classified)
+  recipients: EmailAddress[];
+  internalRecipients: EmailAddress[];
+  externalRecipients: EmailAddress[];
+  warnings: { code: string; message: string }[];
+  // Attachment summaries for preview UI
+  attachments: MessageAttachment[];
+}
+
+export interface InjectSendRequest extends InjectPreviewRequest {
+  subject: string;
+}
+
+export interface InjectSendResponse {
+  sentAt: string;
+  auditLogId: string;
+}
