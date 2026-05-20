@@ -7,6 +7,8 @@ import type {
   Message,
   MessageSummary,
   MessageDetail,
+  EmailAddress,
+  InjectPreviewResponse,
 } from '@threadmerge/shared';
 import { ThreadPicker } from './components/ThreadPicker';
 import { MergePreview } from './components/MergePreview';
@@ -14,6 +16,8 @@ import { SuccessScreen } from './components/SuccessScreen';
 import { CustomiseStep } from './components/CustomiseStep';
 import { MessagePicker } from './components/MessagePicker';
 import { MessageInThreadPicker } from './components/MessageInThreadPicker';
+import { InjectCustomise } from './components/InjectCustomise';
+import { InjectPreview } from './components/InjectPreview';
 import { useCustomisation } from './lib/stores/customisation';
 
 type Step =
@@ -33,6 +37,12 @@ type Step =
 
 type Mode = 'merge' | 'inject';
 
+interface InjectChoices {
+  note: string;
+  includedAttachmentIds: string[];
+  recipients: EmailAddress[];
+}
+
 interface AppState {
   step: Step;
   mode: Mode | null;
@@ -50,6 +60,8 @@ interface AppState {
   destThread: ConversationSummary | null;
   destThreadMessages: Message[];
   replyToMessage: Message | null;
+  injectChoices: InjectChoices | null;
+  injectPreview: InjectPreviewResponse | null;
   // shared
   error: string | null;
   loading: boolean;
@@ -70,6 +82,8 @@ const initialState: AppState = {
   destThread: null,
   destThreadMessages: [],
   replyToMessage: null,
+  injectChoices: null,
+  injectPreview: null,
   error: null,
   loading: false,
 };
@@ -91,19 +105,10 @@ export default function App() {
       const token = await getAuthToken();
       const { user } = await api.me(token);
       const conversations = await api.listConversations(token);
-      update({
-        token,
-        user,
-        conversations,
-        step: 'mode',
-        loading: false,
-      });
+      update({ token, user, conversations, step: 'mode', loading: false });
     } catch (err: any) {
       console.error('Auth/init error:', err);
-      update({
-        error: err.message || 'Sign-in failed',
-        loading: false,
-      });
+      update({ error: err.message || 'Sign-in failed', loading: false });
     }
   }
 
@@ -111,7 +116,6 @@ export default function App() {
     if (mode === 'merge') {
       update({ mode, step: 'pickA' });
     } else {
-      // Load recent messages for source picker
       if (!state.token) return;
       try {
         update({ mode, loading: true, error: null });
@@ -205,11 +209,9 @@ export default function App() {
     try {
       update({ loading: true, error: null });
       const detail = await api.getMessageDetail(state.token, message.id);
-      update({
-        sourceMessage: detail,
-        step: 'inject-pickDest',
-        loading: false,
-      });
+      // Initialize customisation store with just the source message (for redaction support)
+      useCustomisation.getState().initialize([detail], []);
+      update({ sourceMessage: detail, step: 'inject-pickDest', loading: false });
     } catch (err: any) {
       console.error('Get message detail error:', err);
       update({ error: err.message || 'Failed to load message', loading: false });
@@ -236,6 +238,58 @@ export default function App() {
     update({ replyToMessage: message, step: 'inject-customise' });
   }
 
+  async function buildInjectPreview(choices: InjectChoices) {
+    if (!state.sourceMessage || !state.destThread || !state.replyToMessage || !state.token) return;
+    try {
+      update({ injectChoices: choices, loading: true, error: null });
+      const customisation = useCustomisation.getState();
+      const redactions = customisation.serializeRedactions();
+      const preview = await api.injectPreview(state.token, {
+        sourceMessageId: state.sourceMessage.id,
+        destThreadId: state.destThread.conversationId,
+        replyToMessageId: state.replyToMessage.id,
+        note: choices.note,
+        redactions,
+        includedAttachmentIds: choices.includedAttachmentIds,
+        recipients: choices.recipients,
+      });
+      update({ injectPreview: preview, step: 'inject-preview', loading: false });
+    } catch (err: any) {
+      console.error('Inject preview error:', err);
+      update({ error: err.message || 'Failed to build preview', loading: false });
+    }
+  }
+
+  async function sendInject() {
+    if (
+      !state.sourceMessage ||
+      !state.destThread ||
+      !state.replyToMessage ||
+      !state.injectChoices ||
+      !state.injectPreview ||
+      !state.token
+    ) return;
+    try {
+      update({ loading: true, error: null });
+      const customisation = useCustomisation.getState();
+      const redactions = customisation.serializeRedactions();
+      const result = await api.injectSend(state.token, {
+        sourceMessageId: state.sourceMessage.id,
+        destThreadId: state.destThread.conversationId,
+        replyToMessageId: state.replyToMessage.id,
+        note: state.injectChoices.note,
+        redactions,
+        includedAttachmentIds: state.injectChoices.includedAttachmentIds,
+        recipients: state.injectChoices.recipients,
+        subject: state.injectPreview.subject,
+      });
+      update({ sentAt: result.sentAt, step: 'inject-success', loading: false });
+    } catch (err: any) {
+      console.error('Inject send error:', err);
+      update({ error: err.message || 'Failed to send', loading: false });
+    }
+  }
+
   // === Reset ===
 
   function reset() {
@@ -252,6 +306,8 @@ export default function App() {
       destThread: null,
       destThreadMessages: [],
       replyToMessage: null,
+      injectChoices: null,
+      injectPreview: null,
       error: null,
     });
   }
@@ -260,19 +316,14 @@ export default function App() {
     <div className="p-4 min-h-screen">
       <header className="mb-4 pb-3 border-b border-gray-200">
         <h1 className="text-lg font-semibold text-brand-700">ThreadMerge</h1>
-        {state.user && (
-          <p className="text-xs text-gray-500 mt-0.5">{state.user.email}</p>
-        )}
+        {state.user && <p className="text-xs text-gray-500 mt-0.5">{state.user.email}</p>}
       </header>
 
       {state.error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-800 text-xs">
           <div className="font-semibold mb-1">Error</div>
           <div>{state.error}</div>
-          <button
-            onClick={authenticate}
-            className="mt-2 text-red-700 underline text-xs"
-          >
+          <button onClick={authenticate} className="mt-2 text-red-700 underline text-xs">
             Try again
           </button>
         </div>
@@ -356,34 +407,27 @@ export default function App() {
         />
       )}
 
-      {state.step === 'customise' &&
-        state.threadA &&
-        state.threadB &&
-        !state.loading && (
-          <CustomiseStep
-            threadA={state.threadA}
-            threadB={state.threadB}
-            onContinue={buildPreview}
-            onBack={() => {
-              useCustomisation.getState().reset();
-              update({ step: 'pickB', threadB: null });
-            }}
-          />
-        )}
+      {state.step === 'customise' && state.threadA && state.threadB && !state.loading && (
+        <CustomiseStep
+          threadA={state.threadA}
+          threadB={state.threadB}
+          onContinue={buildPreview}
+          onBack={() => {
+            useCustomisation.getState().reset();
+            update({ step: 'pickB', threadB: null });
+          }}
+        />
+      )}
 
-      {state.step === 'preview' &&
-        state.threadA &&
-        state.threadB &&
-        state.preview &&
-        !state.loading && (
-          <MergePreview
-            threadA={state.threadA}
-            threadB={state.threadB}
-            preview={state.preview}
-            onSend={sendMerge}
-            onBack={() => update({ step: 'customise', preview: null })}
-          />
-        )}
+      {state.step === 'preview' && state.threadA && state.threadB && state.preview && !state.loading && (
+        <MergePreview
+          threadA={state.threadA}
+          threadB={state.threadB}
+          preview={state.preview}
+          onSend={sendMerge}
+          onBack={() => update({ step: 'customise', preview: null })}
+        />
+      )}
 
       {state.step === 'success' && state.sentAt && (
         <SuccessScreen sentAt={state.sentAt} onMergeAnother={reset} />
@@ -411,46 +455,40 @@ export default function App() {
         />
       )}
 
-      {state.step === 'inject-pickReplyTo' &&
-        state.destThread &&
-        state.destThreadMessages.length > 0 &&
-        !state.loading && (
-          <MessageInThreadPicker
-            title="Pick which message to reply to"
-            subtitle={`Replying in: "${state.destThread.subject}"`}
-            messages={state.destThreadMessages}
-            onPick={pickReplyTo}
-            onBack={() =>
-              update({ step: 'inject-pickDest', destThread: null, destThreadMessages: [] })
-            }
-          />
-        )}
+      {state.step === 'inject-pickReplyTo' && state.destThread && state.destThreadMessages.length > 0 && !state.loading && (
+        <MessageInThreadPicker
+          title="Pick which message to reply to"
+          subtitle={`Replying in: "${state.destThread.subject}"`}
+          messages={state.destThreadMessages}
+          onPick={pickReplyTo}
+          onBack={() => update({ step: 'inject-pickDest', destThread: null, destThreadMessages: [] })}
+        />
+      )}
 
-      {state.step === 'inject-customise' &&
-        state.sourceMessage &&
-        state.destThread &&
-        state.replyToMessage &&
-        !state.loading && (
-          <div>
-            <h2 className="text-base font-semibold text-gray-900 mb-1">
-              Customise (placeholder)
-            </h2>
-            <p className="text-xs text-gray-500 mb-4">
-              Source: {state.sourceMessage.subject}<br />
-              Destination: {state.destThread.subject}<br />
-              Replying to: {state.replyToMessage.from.emailAddress.name || state.replyToMessage.from.emailAddress.address}<br /><br />
-              Note input, attachments, recipients, and preview come in Chunk 4.
-            </p>
-            <button
-              onClick={() =>
-                update({ step: 'inject-pickReplyTo', replyToMessage: null })
-              }
-              className="text-xs text-gray-500 hover:text-gray-700"
-            >
-              ← Back
-            </button>
-          </div>
-        )}
+      {state.step === 'inject-customise' && state.sourceMessage && state.destThread && state.replyToMessage && !state.loading && (
+        <InjectCustomise
+          sourceMessage={state.sourceMessage}
+          destThreadSubject={state.destThread.subject}
+          destThreadMessages={state.destThreadMessages}
+          replyToMessage={state.replyToMessage}
+          onContinue={buildInjectPreview}
+          onBack={() => update({ step: 'inject-pickReplyTo', replyToMessage: null })}
+        />
+      )}
+
+      {state.step === 'inject-preview' && state.sourceMessage && state.destThread && state.injectPreview && !state.loading && (
+        <InjectPreview
+          sourceMessage={state.sourceMessage}
+          destThread={state.destThread}
+          preview={state.injectPreview}
+          onSend={sendInject}
+          onBack={() => update({ step: 'inject-customise', injectPreview: null })}
+        />
+      )}
+
+      {state.step === 'inject-success' && state.sentAt && (
+        <SuccessScreen sentAt={state.sentAt} onMergeAnother={reset} />
+      )}
     </div>
   );
 }
