@@ -5,8 +5,10 @@ import type { ConversationSummary, MergePreviewResponse } from '@threadmerge/sha
 import { ThreadPicker } from './components/ThreadPicker';
 import { MergePreview } from './components/MergePreview';
 import { SuccessScreen } from './components/SuccessScreen';
+import { CustomiseStep } from './components/CustomiseStep';
+import { useCustomisation } from './lib/stores/customisation';
 
-type Step = 'auth' | 'pickA' | 'pickB' | 'preview' | 'success';
+type Step = 'auth' | 'pickA' | 'pickB' | 'customise' | 'preview' | 'success';
 
 interface AppState {
   step: Step;
@@ -33,6 +35,28 @@ const initialState: AppState = {
   error: null,
   loading: false,
 };
+
+interface CustomisationState {
+  messages: MessageWithMeta[];        // All messages from both threads with included/order
+  redactions: Record<string, RedactionRange[]>;  // Per-message redactions
+  toggleInclude: (id: string) => void;
+  reorder: (oldIndex: number, newIndex: number) => void;
+  addRedaction: (messageId: string, range: RedactionRange) => void;
+  removeRedaction: (messageId: string, rangeId: string) => void;
+}
+
+interface MessageWithMeta extends Message {
+  included: boolean;
+  order: number;
+  sourceThread: 'A' | 'B';
+}
+
+interface RedactionRange {
+  id: string;
+  start: number;
+  end: number;
+  text: string;  // The original text being redacted, for audit purposes
+}
 
 export default function App() {
   const [state, setState] = useState<AppState>(initialState);
@@ -75,79 +99,115 @@ useEffect(() => {
     update({ threadA: thread, step: 'pickB' });
   }
 
-  function pickThreadB(thread: ConversationSummary) {
-    update({ threadB: thread });
-    buildPreview(thread);
+  async function pickThreadB(thread: ConversationSummary) {
+  if (!state.threadA || !state.token) return;
+  try {
+    update({ threadB: thread, loading: true, error: null });
+    
+    // Load messages from both threads into the customisation store
+    const [msgsA, msgsB] = await Promise.all([
+      api.getConversation(state.token, state.threadA.conversationId),
+      api.getConversation(state.token, thread.conversationId),
+    ]);
+    
+    useCustomisation.getState().initialize(msgsA, msgsB);
+    
+    update({ step: 'customise', loading: false });
+  } catch (err: any) {
+    console.error('Load messages error:', err);
+    update({ error: err.message || 'Failed to load messages', loading: false });
   }
+}
 
-  async function buildPreview(threadB: ConversationSummary) {
-    if (!state.threadA || !state.token) return;
-    try {
-      update({ loading: true, error: null });
+  async function buildPreview() {
+  if (!state.threadA || !state.threadB || !state.token) return;
+  try {
+    update({ loading: true, error: null });
 
-      // Fetch messages from both threads
-      const [msgsA, msgsB] = await Promise.all([
-        api.getConversation(state.token, state.threadA.conversationId),
-        api.getConversation(state.token, threadB.conversationId),
-      ]);
-
-      const allMessageIds = [...msgsA, ...msgsB].map((m) => m.id);
-
-      const preview = await api.mergePreview(state.token, {
-        threadAId: state.threadA.conversationId,
-        threadBId: threadB.conversationId,
-        includedMessageIds: allMessageIds,
-        messageOrder: [],
-        redactions: [],
-      });
-
-      update({ preview, step: 'preview', loading: false });
-    } catch (err: any) {
-      console.error('Preview error:', err);
-      update({ error: err.message || 'Failed to build preview', loading: false });
+    const customisation = useCustomisation.getState();
+    const includedMessages = customisation.messages.filter((m) => m.included);
+    
+    if (includedMessages.length === 0) {
+      update({ error: 'Select at least one message to include', loading: false });
+      return;
     }
+
+    const includedMessageIds = includedMessages.map((m) => m.id);
+    const messageOrder = includedMessages.map((m) => m.id);
+    
+    // Flatten redactions to backend format
+    const redactions = Object.entries(customisation.redactions).flatMap(
+      ([messageId, ranges]) =>
+        ranges.map((r) => ({
+          messageId,
+          start: r.start,
+          end: r.end,
+        }))
+    );
+
+    const preview = await api.mergePreview(state.token, {
+      threadAId: state.threadA.conversationId,
+      threadBId: state.threadB.conversationId,
+      includedMessageIds,
+      messageOrder,
+      redactions,
+    });
+
+    update({ preview, step: 'preview', loading: false });
+  } catch (err: any) {
+    console.error('Preview error:', err);
+    update({ error: err.message || 'Failed to build preview', loading: false });
   }
+}
 
   async function sendMerge(subject: string) {
-    if (!state.threadA || !state.threadB || !state.token || !state.preview) return;
-    try {
-      update({ loading: true, error: null });
+  if (!state.threadA || !state.threadB || !state.token || !state.preview) return;
+  try {
+    update({ loading: true, error: null });
 
-      const [msgsA, msgsB] = await Promise.all([
-        api.getConversation(state.token, state.threadA.conversationId),
-        api.getConversation(state.token, state.threadB.conversationId),
-      ]);
+    const customisation = useCustomisation.getState();
+    const includedMessages = customisation.messages.filter((m) => m.included);
+    const includedMessageIds = includedMessages.map((m) => m.id);
+    const messageOrder = includedMessages.map((m) => m.id);
+    
+    const redactions = Object.entries(customisation.redactions).flatMap(
+      ([messageId, ranges]) =>
+        ranges.map((r) => ({
+          messageId,
+          start: r.start,
+          end: r.end,
+        }))
+    );
 
-      const allMessageIds = [...msgsA, ...msgsB].map((m) => m.id);
+    const result = await api.mergeSend(state.token, {
+      threadAId: state.threadA.conversationId,
+      threadBId: state.threadB.conversationId,
+      includedMessageIds,
+      messageOrder,
+      redactions,
+      subject,
+      recipients: state.preview.recipients,
+    });
 
-      const result = await api.mergeSend(state.token, {
-        threadAId: state.threadA.conversationId,
-        threadBId: state.threadB.conversationId,
-        includedMessageIds: allMessageIds,
-        messageOrder: [],
-        redactions: [],
-        subject,
-        recipients: state.preview.recipients,
-      });
-
-      update({ sentAt: result.sentAt, step: 'success', loading: false });
-    } catch (err: any) {
-      console.error('Send error:', err);
-      update({ error: err.message || 'Failed to send', loading: false });
-    }
+    update({ sentAt: result.sentAt, step: 'success', loading: false });
+  } catch (err: any) {
+    console.error('Send error:', err);
+    update({ error: err.message || 'Failed to send', loading: false });
   }
+}
 
   function reset() {
-    if (!state.token || !state.user) return;
-    update({
-      step: 'pickA',
-      threadA: null,
-      threadB: null,
-      preview: null,
-      sentAt: null,
-      error: null,
-    });
-  }
+  if (!state.token || !state.user) return;
+  useCustomisation.getState().reset();
+  update({
+    step: 'pickA',
+    threadA: null,
+    threadB: null,
+    preview: null,
+    sentAt: null,
+    error: null,
+  });
+}
 
   // === Render ===
   return (
@@ -215,6 +275,21 @@ useEffect(() => {
         />
       )}
 
+      {state.step === 'customise' &&
+  state.threadA &&
+  state.threadB &&
+  !state.loading && (
+    <CustomiseStep
+      threadA={state.threadA}
+      threadB={state.threadB}
+      onContinue={buildPreview}
+      onBack={() => {
+        useCustomisation.getState().reset();
+        update({ step: 'pickB', threadB: null });
+      }}
+    />
+  )}
+
       {state.step === 'preview' &&
         state.threadA &&
         state.threadB &&
@@ -225,7 +300,7 @@ useEffect(() => {
             threadB={state.threadB}
             preview={state.preview}
             onSend={sendMerge}
-            onBack={() => update({ step: 'pickB', threadB: null, preview: null })}
+            onBack={() => update({ step: 'customise', preview: null })}
           />
         )}
 
