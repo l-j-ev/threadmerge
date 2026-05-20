@@ -103,10 +103,15 @@ export function buildMergedBody(
 
 /**
  * Builds a deduplicated list of all unique recipients across the given messages.
- * Includes To, Cc, and senders.
+ * Includes To, Cc, and senders from the source threads.
+ * Excludes the current user's own address (they're sending, not receiving).
  */
-export function collectRecipients(messages: Message[]): EmailAddress[] {
+export function collectRecipients(
+  messages: Message[],
+  excludeAddress?: string
+): EmailAddress[] {
   const seen = new Map<string, EmailAddress>();
+  const exclude = excludeAddress?.toLowerCase();
 
   for (const msg of messages) {
     const recipients: EmailAddress[] = [
@@ -117,6 +122,7 @@ export function collectRecipients(messages: Message[]): EmailAddress[] {
 
     for (const r of recipients) {
       const addr = r.address.toLowerCase();
+      if (exclude && addr === exclude) continue;
       if (!seen.has(addr)) {
         seen.set(addr, r);
       }

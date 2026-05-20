@@ -1,191 +1,236 @@
 import { useEffect, useState } from 'react';
 import { getAuthToken } from './lib/auth';
 import { api } from './lib/api';
+import type { ConversationSummary, MergePreviewResponse } from '@threadmerge/shared';
+import { ThreadPicker } from './components/ThreadPicker';
+import { MergePreview } from './components/MergePreview';
+import { SuccessScreen } from './components/SuccessScreen';
+
+type Step = 'auth' | 'pickA' | 'pickB' | 'preview' | 'success';
+
+interface AppState {
+  step: Step;
+  user: any | null;
+  token: string | null;
+  conversations: ConversationSummary[];
+  threadA: ConversationSummary | null;
+  threadB: ConversationSummary | null;
+  preview: MergePreviewResponse | null;
+  sentAt: string | null;
+  error: string | null;
+  loading: boolean;
+}
+
+const initialState: AppState = {
+  step: 'auth',
+  user: null,
+  token: null,
+  conversations: [],
+  threadA: null,
+  threadB: null,
+  preview: null,
+  sentAt: null,
+  error: null,
+  loading: false,
+};
 
 export default function App() {
-  const [status, setStatus] = useState<string>('Initialising...');
-  const [user, setUser] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [needsSignIn, setNeedsSignIn] = useState(false);
-  const [debugMessage, setDebugMessage] = useState<string | null>(null);
+  const [state, setState] = useState<AppState>(initialState);
+
+  function update(patch: Partial<AppState>) {
+    setState((s) => ({ ...s, ...patch }));
+  }
+
+ // === Initial state on mount ===
+useEffect(() => {
+  // Don't auto-trigger auth - Office dialog API isn't ready during mount lifecycle.
+  // User clicks the sign-in button to start the flow.
+}, []);
 
   async function authenticate() {
     try {
-      setError(null);
-      setStatus('Signing in...');
+      update({ loading: true, error: null });
       const token = await getAuthToken();
-      setStatus('Loading user...');
-      const data = await api.me(token);
-      setUser(data.user);
-      setStatus('Ready');
-      setNeedsSignIn(false);
+      const { user } = await api.me(token);
+      // Pre-fetch conversations once we have a token
+      const conversations = await api.listConversations(token);
+      update({
+        token,
+        user,
+        conversations,
+        step: 'pickA',
+        loading: false,
+      });
     } catch (err: any) {
-      console.error('Auth error:', err);
-      setError(err.message || 'Unknown error');
-      setStatus('Failed');
-      setNeedsSignIn(true);
+      console.error('Auth/init error:', err);
+      update({
+        error: err.message || 'Sign-in failed',
+        loading: false,
+      });
     }
   }
 
-  useEffect(() => {
-    setStatus('Click sign in to begin');
-    setNeedsSignIn(true);
-  }, []);
-
-  async function listConversations() {
-    try {
-      setDebugMessage('Fetching conversations...');
-      const token = await getAuthToken();
-      const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/conversations`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      console.log('Conversations:', data);
-      setDebugMessage(
-        `Got ${Array.isArray(data) ? data.length : 0} conversations. ` +
-          `Check console (F12) for full data.`
-      );
-    } catch (err: any) {
-      setDebugMessage(`Error: ${err.message}`);
-    }
+  // === Step handlers ===
+  function pickThreadA(thread: ConversationSummary) {
+    update({ threadA: thread, step: 'pickB' });
   }
 
-  async function testMerge() {
+  function pickThreadB(thread: ConversationSummary) {
+    update({ threadB: thread });
+    buildPreview(thread);
+  }
+
+  async function buildPreview(threadB: ConversationSummary) {
+    if (!state.threadA || !state.token) return;
     try {
-      setDebugMessage('Building merge preview...');
-      const token = await getAuthToken();
+      update({ loading: true, error: null });
 
-      // 1. Get conversations
-      const convRes = await fetch(`${import.meta.env.VITE_API_BASE}/api/conversations`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const convs = await convRes.json();
-      if (!Array.isArray(convs) || convs.length < 2) {
-        setDebugMessage(`Need at least 2 conversations; have ${convs.length || 0}`);
-        return;
-      }
-
-      const threadA = convs[0];
-      const threadB = convs[1];
-
-      // 2. Get messages from both
+      // Fetch messages from both threads
       const [msgsA, msgsB] = await Promise.all([
-        fetch(
-          `${import.meta.env.VITE_API_BASE}/api/conversations/${encodeURIComponent(
-            threadA.conversationId
-          )}/messages`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        ).then((r) => r.json()),
-        fetch(
-          `${import.meta.env.VITE_API_BASE}/api/conversations/${encodeURIComponent(
-            threadB.conversationId
-          )}/messages`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        ).then((r) => r.json()),
+        api.getConversation(state.token, state.threadA.conversationId),
+        api.getConversation(state.token, threadB.conversationId),
       ]);
 
-      const allMessageIds = [...msgsA, ...msgsB].map((m: any) => m.id);
+      const allMessageIds = [...msgsA, ...msgsB].map((m) => m.id);
 
-      // 3. Preview the merge
-      const previewRes = await fetch(`${import.meta.env.VITE_API_BASE}/api/merge/preview`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          threadAId: threadA.conversationId,
-          threadBId: threadB.conversationId,
-          includedMessageIds: allMessageIds,
-          messageOrder: [],
-          redactions: [],
-        }),
+      const preview = await api.mergePreview(state.token, {
+        threadAId: state.threadA.conversationId,
+        threadBId: threadB.conversationId,
+        includedMessageIds: allMessageIds,
+        messageOrder: [],
+        redactions: [],
       });
 
-      const preview = await previewRes.json();
-      console.log('=== MERGE PREVIEW ===');
-      console.log('Thread A:', threadA.subject);
-      console.log('Thread B:', threadB.subject);
-      console.log('Recipients:', preview.recipients);
-      console.log('Internal:', preview.internalRecipients);
-      console.log('External:', preview.externalRecipients);
-      console.log('Warnings:', preview.warnings);
-      console.log('Body length:', preview.mergedBody?.length);
-      console.log('Body preview:', preview.mergedBody?.substring(0, 500));
-      console.log('=====================');
-
-      setDebugMessage(
-        `Merge built: ${msgsA.length + msgsB.length} msgs, ` +
-          `${preview.recipients?.length || 0} recipients, ` +
-          `${preview.warnings?.length || 0} warnings. See console.`
-      );
+      update({ preview, step: 'preview', loading: false });
     } catch (err: any) {
-      console.error('Merge test error:', err);
-      setDebugMessage(`Error: ${err.message}`);
+      console.error('Preview error:', err);
+      update({ error: err.message || 'Failed to build preview', loading: false });
     }
   }
 
+  async function sendMerge(subject: string) {
+    if (!state.threadA || !state.threadB || !state.token || !state.preview) return;
+    try {
+      update({ loading: true, error: null });
+
+      const [msgsA, msgsB] = await Promise.all([
+        api.getConversation(state.token, state.threadA.conversationId),
+        api.getConversation(state.token, state.threadB.conversationId),
+      ]);
+
+      const allMessageIds = [...msgsA, ...msgsB].map((m) => m.id);
+
+      const result = await api.mergeSend(state.token, {
+        threadAId: state.threadA.conversationId,
+        threadBId: state.threadB.conversationId,
+        includedMessageIds: allMessageIds,
+        messageOrder: [],
+        redactions: [],
+        subject,
+        recipients: state.preview.recipients,
+      });
+
+      update({ sentAt: result.sentAt, step: 'success', loading: false });
+    } catch (err: any) {
+      console.error('Send error:', err);
+      update({ error: err.message || 'Failed to send', loading: false });
+    }
+  }
+
+  function reset() {
+    if (!state.token || !state.user) return;
+    update({
+      step: 'pickA',
+      threadA: null,
+      threadB: null,
+      preview: null,
+      sentAt: null,
+      error: null,
+    });
+  }
+
+  // === Render ===
   return (
-    <div className="p-4">
-      <header className="mb-4">
-        <h1 className="text-xl font-semibold text-brand-700">ThreadMerge</h1>
-        <p className="text-sm text-gray-500">Merge email threads with controlled disclosure</p>
+    <div className="p-4 min-h-screen">
+      <header className="mb-4 pb-3 border-b border-gray-200">
+        <h1 className="text-lg font-semibold text-brand-700">ThreadMerge</h1>
+        {state.user && (
+          <p className="text-xs text-gray-500 mt-0.5">
+            {state.user.email}
+          </p>
+        )}
       </header>
 
-      <div className="text-sm">
-        <div className="mb-2">
-          <span className="font-medium">Status:</span> {status}
-        </div>
-        {user && (
-          <div className="mb-2">
-            <span className="font-medium">Signed in as:</span> {user.email}
-          </div>
-        )}
-        {error && (
-          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded text-red-800">
-            <div className="font-semibold mb-1">Error</div>
-            <div className="text-xs">{error}</div>
-          </div>
-        )}
-        {needsSignIn && (
+      {state.error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-800 text-xs">
+          <div className="font-semibold mb-1">Error</div>
+          <div>{state.error}</div>
           <button
             onClick={authenticate}
-            className="mt-3 px-4 py-2 bg-brand-500 text-white rounded hover:bg-brand-600 text-sm"
+            className="mt-2 text-red-700 underline text-xs"
           >
-            Sign in with Microsoft
+            Try again
           </button>
-        )}
-      </div>
-
-      {user && (
-        <div className="mt-6 space-y-3">
-          <div className="p-3 bg-brand-50 border border-brand-100 rounded text-brand-700 text-sm">
-            Stage 3 complete. Stage 4 verification below.
-          </div>
-
-          <div className="border border-gray-200 rounded p-3 text-xs">
-            <div className="font-semibold text-gray-700 mb-2">Backend tests</div>
-            <div className="space-y-2">
-              <button
-                onClick={listConversations}
-                className="block w-full px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-              >
-                List my conversations
-              </button>
-              <button
-                onClick={testMerge}
-                className="block w-full px-3 py-1.5 bg-brand-500 text-white rounded hover:bg-brand-600"
-              >
-                Build a test merge preview
-              </button>
-            </div>
-            {debugMessage && (
-              <div className="mt-3 p-2 bg-gray-50 border border-gray-200 rounded text-xs text-gray-700">
-                {debugMessage}
-              </div>
-            )}
-          </div>
         </div>
+      )}
+
+      {state.loading && (
+        <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded text-gray-700 text-xs">
+          Loading...
+        </div>
+      )}
+
+      {state.step === 'auth' && !state.loading && (
+  <div>
+    <p className="text-sm text-gray-600 mb-3">
+      Sign in with your Microsoft account to get started.
+    </p>
+    <button
+      onClick={authenticate}
+      className="px-4 py-2 text-sm font-medium text-white bg-brand-500 rounded hover:bg-brand-600"
+    >
+      Sign in with Microsoft
+    </button>
+  </div>
+)}
+
+      {state.step === 'pickA' && !state.loading && (
+        <ThreadPicker
+          title="Pick the first thread"
+          subtitle="Choose the conversation you want to start with."
+          conversations={state.conversations}
+          excludeId={null}
+          onPick={pickThreadA}
+        />
+      )}
+
+      {state.step === 'pickB' && state.threadA && !state.loading && (
+        <ThreadPicker
+          title="Pick the second thread"
+          subtitle={`Merging with: "${state.threadA.subject}"`}
+          conversations={state.conversations}
+          excludeId={state.threadA.conversationId}
+          onPick={pickThreadB}
+          onBack={() => update({ step: 'pickA', threadA: null })}
+        />
+      )}
+
+      {state.step === 'preview' &&
+        state.threadA &&
+        state.threadB &&
+        state.preview &&
+        !state.loading && (
+          <MergePreview
+            threadA={state.threadA}
+            threadB={state.threadB}
+            preview={state.preview}
+            onSend={sendMerge}
+            onBack={() => update({ step: 'pickB', threadB: null, preview: null })}
+          />
+        )}
+
+      {state.step === 'success' && state.sentAt && (
+        <SuccessScreen sentAt={state.sentAt} onMergeAnother={reset} />
       )}
     </div>
   );

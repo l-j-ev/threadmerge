@@ -44,12 +44,13 @@ export async function validateSSOToken(token: string): Promise<DecodedSSOToken> 
     throw new Error(`Token is not a valid JWT (got ${parts.length} parts)`);
   }
 
+  if (process.env.DEBUG_JWT === 'true') {
   try {
     const header = JSON.parse(Buffer.from(parts[0], 'base64').toString());
     const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
     console.log('=== JWT DIAGNOSTIC ===');
     console.log('Header:', JSON.stringify(header, null, 2));
-    console.log('Payload (sensitive fields only):', JSON.stringify({
+    console.log('Payload:', JSON.stringify({
       aud: payload.aud,
       iss: payload.iss,
       tid: payload.tid,
@@ -57,12 +58,12 @@ export async function validateSSOToken(token: string): Promise<DecodedSSOToken> 
       scp: payload.scp,
       ver: payload.ver,
       preferred_username: payload.preferred_username,
-      app_displayname: payload.app_displayname,
     }, null, 2));
     console.log('======================');
   } catch (err) {
     console.error('Failed to decode token for diagnostics:', err);
   }
+}
 
   return new Promise((resolve, reject) => {
     jwt.verify(
