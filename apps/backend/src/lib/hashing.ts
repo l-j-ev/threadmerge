@@ -280,3 +280,13 @@ export function generateRecipientTokens(
     token: randomBytes(16).toString('hex'),
   }));
 }
+
+/**
+ * Builds the user-facing verify URL for a captured message hash.
+ * Reads from VERIFY_URL_BASE env var. In dev this is the Codespace URL;
+ * in production this becomes nootro.ai/verify/{hash}.
+ */
+export function buildVerifyUrl(contentHash: string): string {
+  const base = process.env.VERIFY_URL_BASE || 'http://localhost:4000';
+  return `${base.replace(/\/$/, '')}/verify/${contentHash}`;
+}

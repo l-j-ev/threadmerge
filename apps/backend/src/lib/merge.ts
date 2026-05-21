@@ -39,7 +39,8 @@ function applyRedactions(content: string, messageRedactions: Redaction[]): strin
  */
 export function buildMergedBody(
   messagesInOrder: Message[],
-  redactions: Redaction[]
+  redactions: Redaction[],
+  verifyUrlByMessageId?: Map<string, string>
 ): string {
   const redactionsByMessageId = new Map<string, Redaction[]>();
   for (const r of redactions) {
@@ -77,6 +78,11 @@ export function buildMergedBody(
         : `<pre style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(msg.body.content)}</pre>`;
     const bodyContent = applyRedactions(rawContent, msgRedactions);
 
+    const verifyUrl = verifyUrlByMessageId?.get(msg.id);
+    const verifyBadge = verifyUrl
+      ? `<div style="margin: 8px 0;"><a href="${escapeHtml(verifyUrl)}" style="display:inline-block; font-size:11px; color:#5b6cff; text-decoration:none; padding:3px 10px; border:1px solid #c5cdff; border-radius:4px; background:#f5f7ff;">🔒 Verified by Nootro · verify this message</a></div>`
+      : '';
+
     html += `
       <div style="border-left: 3px solid #0078d4; padding: 10px 14px; margin: 14px 0; background: #fafafa;">
         <div style="font-size: 13px; color: #666; margin-bottom: 10px; line-height: 1.5;">
@@ -84,6 +90,7 @@ export function buildMergedBody(
           <strong>To:</strong> ${toList}<br>
           <strong>Date:</strong> ${escapeHtml(date)}
         </div>
+        ${verifyBadge}
         <div style="font-size: 14px;">
           ${bodyContent}
         </div>
@@ -93,7 +100,7 @@ export function buildMergedBody(
 
   html += `
       <div style="margin-top: 24px; padding-top: 12px; border-top: 1px solid #ddd; font-size: 11px; color: #999; text-align: center;">
-        Threads merged with ThreadMerge
+        Sent with Nootro
       </div>
     </div>
   `;

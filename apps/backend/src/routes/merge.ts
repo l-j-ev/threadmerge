@@ -7,7 +7,7 @@ import {
   classifyRecipients,
   detectWarnings,
 } from '../lib/merge';
-import { captureMessages, generateRecipientTokens } from '../lib/hashing';
+import { captureMessages, generateRecipientTokens, buildVerifyUrl } from '../lib/hashing';
 import { prisma } from '../lib/db';
 import { MergePreviewRequest, MergeSendRequest, Message } from '@threadmerge/shared';
 
@@ -93,24 +93,30 @@ mergeRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response)
             new Date(b.receivedDateTime).getTime()
         );
 
-  const mergedBody = buildMergedBody(orderedMessages, body.redactions);
-  const userEmail = req.user!.email;
-  const { internal, external } = classifyRecipients(body.recipients, userEmail);
-
-  // Send via Graph
-  await sendMail(client, {
-    subject: body.subject,
-    body: { contentType: 'HTML', content: mergedBody },
-    toRecipients: body.recipients.map((r) => ({ emailAddress: { address: r.address } })),
-  });
-
-  // Capture hashes for all included messages (downloads attachment binaries)
+  // Capture hashes FIRST so we can embed verify links into the rendered body
   console.log(`[merge/send] Capturing ${orderedMessages.length} message hash(es)...`);
   const capturedRecords = await captureMessages(
     client,
     orderedMessages.map((m) => m.id)
   );
   console.log(`[merge/send] Captured ${capturedRecords.length} hash(es).`);
+
+  // Build a map of messageId -> verify URL for the body builder to embed
+  const verifyUrlByMessageId = new Map<string, string>();
+  for (const r of capturedRecords) {
+    verifyUrlByMessageId.set(r.graphMessageId, buildVerifyUrl(r.contentHash));
+  }
+
+  const mergedBody = buildMergedBody(orderedMessages, body.redactions, verifyUrlByMessageId);
+  const userEmail = req.user!.email;
+  const { internal, external } = classifyRecipients(body.recipients, userEmail);
+
+  // Send via Graph (body now includes verify badges per quoted message)
+  await sendMail(client, {
+    subject: body.subject,
+    body: { contentType: 'HTML', content: mergedBody },
+    toRecipients: body.recipients.map((r) => ({ emailAddress: { address: r.address } })),
+  });
 
   // Generate per-recipient tokens for the authenticated verify tier
   const recipientTokens = generateRecipientTokens(body.recipients);

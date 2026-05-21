@@ -11,6 +11,7 @@ import { auditRouter } from './routes/audit';
 import { templatesRouter } from './routes/templates';
 import { messagesRouter } from './routes/messages';
 import { injectRouter } from './routes/inject';
+import { verifyRouter } from './routes/verify';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -53,6 +54,7 @@ app.use('/api/audit', auditRouter);
 app.use('/api/templates', templatesRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/inject', injectRouter);
+app.use(verifyRouter);
 
 // Error handler must be last
 app.use(errorHandler);
