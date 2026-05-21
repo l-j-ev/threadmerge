@@ -9,7 +9,7 @@ import {
 } from '../lib/graph';
 import { classifyRecipients } from '../lib/merge';
 import { escapeHtml } from '../lib/textExtraction';
-import { captureMessage, generateRecipientTokens } from '../lib/hashing';
+import { captureMessage, generateRecipientTokens, buildVerifyUrl } from '../lib/hashing';
 import { prisma } from '../lib/db';
 import type {
   InjectPreviewRequest,
@@ -39,7 +39,8 @@ function applyRedactions(content: string, redactions: Redaction[]): string {
  */
 async function buildReplyBody(
   client: any,
-  body: InjectPreviewRequest
+  body: InjectPreviewRequest,
+  sourceVerifyUrl?: string
 ): Promise<{
   replyBody: string;
   subject: string;
@@ -86,6 +87,10 @@ async function buildReplyBody(
   const fromAddr = source.from?.emailAddress?.address || '';
   const sourceDate = new Date(source.receivedDateTime).toLocaleString('en-GB');
 
+  const verifyBadge = sourceVerifyUrl
+    ? `<div style="margin: 8px 0;"><a href="${escapeHtml(sourceVerifyUrl)}" style="display:inline-block; font-size:11px; color:#5b6cff; text-decoration:none; padding:3px 10px; border:1px solid #c5cdff; border-radius:4px; background:#f5f7ff;">🔒 Verified by Nootro · verify this message</a></div>`
+    : '';
+
   const sourceQuote = `
     <div style="border-left: 3px solid #ccc; padding: 10px 14px; margin: 14px 0; background: #fafafa; font-family: Arial, sans-serif;">
       <div style="font-size: 13px; color: #666; margin-bottom: 10px; line-height: 1.5;">
@@ -93,6 +98,7 @@ async function buildReplyBody(
         <strong>Sent:</strong> ${escapeHtml(sourceDate)}<br>
         <strong>Subject:</strong> ${escapeHtml(source.subject || '')}
       </div>
+      ${verifyBadge}
       <div style="font-size: 14px; color: #333;">
         ${redactedSourceBody}
       </div>
@@ -104,7 +110,7 @@ async function buildReplyBody(
       ${noteHtml}
       ${sourceQuote}
       <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 11px; color: #999;">
-        Added with ThreadMerge
+        Sent with Nootro
       </div>
     </div>
   `;
@@ -165,9 +171,18 @@ injectRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response
     const body = req.body as InjectSendRequest;
     const client = getGraphClient(req.graphToken!);
 
+    // Capture source message hash FIRST so we can embed verify link into the body
+    console.log('[inject/send] Capturing source message hash...');
+    const capturedRecord = await captureMessage(client, body.sourceMessageId);
+    console.log(`[inject/send] Captured hash: ${capturedRecord.contentHash.slice(0, 8)}...`);
+
+    // Build the verify URL for the source message
+    const sourceVerifyUrl = buildVerifyUrl(capturedRecord.contentHash);
+
     const { replyBody, source, replyTo, includedAttachments } = await buildReplyBody(
       client,
-      body
+      body,
+      sourceVerifyUrl
     );
 
     // Fetch attachment content for each included attachment
@@ -183,7 +198,7 @@ injectRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response
       });
     }
 
-    // Send the reply
+    // Send the reply (body now includes verify badge next to the source quote)
     console.log(
       `Sending reply on message ${replyTo.id} to ${body.recipients.length} recipient(s)...`
     );
@@ -194,12 +209,6 @@ injectRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response
       })),
       attachments: attachmentsToAttach,
     });
-
-
-    // Capture source message hash for verification
-    console.log('[inject/send] Capturing source message hash...');
-    const capturedRecord = await captureMessage(client, source.id);
-    console.log(`[inject/send] Captured hash: ${capturedRecord.contentHash.slice(0, 8)}...`);
 
     // Generate per-recipient tokens for the authenticated verify tier
     const recipientTokens = generateRecipientTokens(body.recipients);
