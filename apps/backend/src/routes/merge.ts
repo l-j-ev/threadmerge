@@ -7,7 +7,7 @@ import {
   classifyRecipients,
   detectWarnings,
 } from '../lib/merge';
-import { captureMessages, generateRecipientTokens, buildVerifyUrl } from '../lib/hashing';
+import { captureMessages, buildVerifyUrl } from '../lib/hashing';
 import { prisma } from '../lib/db';
 import { MergePreviewRequest, MergeSendRequest, Message } from '@threadmerge/shared';
 
@@ -118,9 +118,6 @@ mergeRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response)
     toRecipients: body.recipients.map((r) => ({ emailAddress: { address: r.address } })),
   });
 
-  // Generate per-recipient tokens for the authenticated verify tier
-  const recipientTokens = generateRecipientTokens(body.recipients);
-  console.log(`[merge/send] Generated ${recipientTokens.length} recipient token(s).`);
 
   // Find the database tenant + user
   const tenant = await prisma.tenant.findUniqueOrThrow({
@@ -162,12 +159,6 @@ mergeRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response)
           recipientCount: r.recipientCount,
           hadAttachments: r.hadAttachments,
           attachmentCount: r.attachmentCount,
-        })),
-      },
-      recipientTokens: {
-        create: recipientTokens.map((rt) => ({
-          token: rt.token,
-          recipientAddress: rt.recipientAddress,
         })),
       },
     },

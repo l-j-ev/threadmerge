@@ -9,7 +9,7 @@ import {
 } from '../lib/graph';
 import { classifyRecipients } from '../lib/merge';
 import { escapeHtml } from '../lib/textExtraction';
-import { captureMessage, generateRecipientTokens, buildVerifyUrl } from '../lib/hashing';
+import { captureMessage, buildVerifyUrl } from '../lib/hashing';
 import { prisma } from '../lib/db';
 import type {
   InjectPreviewRequest,
@@ -210,9 +210,6 @@ injectRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response
       attachments: attachmentsToAttach,
     });
 
-    // Generate per-recipient tokens for the authenticated verify tier
-    const recipientTokens = generateRecipientTokens(body.recipients);
-    console.log(`[inject/send] Generated ${recipientTokens.length} recipient token(s).`);
 
     // Audit log
     const userEmail = req.user!.email;
@@ -258,12 +255,6 @@ injectRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response
             hadAttachments: capturedRecord.hadAttachments,
             attachmentCount: capturedRecord.attachmentCount,
           }],
-        },
-        recipientTokens: {
-          create: recipientTokens.map((rt) => ({
-            token: rt.token,
-            recipientAddress: rt.recipientAddress,
-          })),
         },
       },
     });

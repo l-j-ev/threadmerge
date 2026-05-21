@@ -91,7 +91,6 @@ model AuditLogEntry {
 
   // Verification feature
   capturedMessages        CapturedMessage[]
-  recipientTokens         RecipientToken[]
 
   @@index([userId])
   @@index([tenantId])
@@ -142,15 +141,3 @@ model CapturedMessage {
 }
 
 /// One token per recipient per send. Used in the authenticated tier of verification.
-/// Embedded as a query param in the recipient's verify link.
-model RecipientToken {
-  id               String        @id @default(uuid())
-  token            String        @unique
-  auditLogId       String
-  auditLog         AuditLogEntry @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
-  recipientAddress String
-  createdAt        DateTime      @default(now())
-
-  @@index([token])
-  @@index([auditLogId])
-}
