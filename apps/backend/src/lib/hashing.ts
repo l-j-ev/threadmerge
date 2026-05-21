@@ -253,3 +253,30 @@ export async function captureMessages(
   }
   return records;
 }
+
+// =========================================================================
+// Recipient tokens - per-recipient secrets for the authenticated tier
+// =========================================================================
+
+import { randomBytes } from 'crypto';
+
+export interface RecipientTokenRecord {
+  recipientAddress: string;
+  token: string;
+}
+
+/**
+ * Generates one cryptographically random token per recipient address.
+ * 32-character hex = 128 bits of entropy.
+ *
+ * Addresses are normalised to lowercase to avoid case-sensitivity bugs
+ * when looking up tokens later.
+ */
+export function generateRecipientTokens(
+  recipients: { address: string }[]
+): RecipientTokenRecord[] {
+  return recipients.map((r) => ({
+    recipientAddress: r.address.trim().toLowerCase(),
+    token: randomBytes(16).toString('hex'),
+  }));
+}

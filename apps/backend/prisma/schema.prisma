@@ -125,7 +125,7 @@ model CapturedMessage {
   conversationId    String?
 
   // The hash itself
-  contentHash       String        @unique
+  contentHash       String
   hashAlgorithm     String        @default("sha256")
 
   // Metadata captured at hash time (for public verify page)
