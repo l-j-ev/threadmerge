@@ -196,7 +196,6 @@ injectRouter.post('/send', requireAuth, async (req: AuthedRequest, res: Response
     });
 
 
-    console.log('[inject/send] DIAGNOSTIC: reached capture block, source.id =', source.id);
     // Capture source message hash for verification
     console.log('[inject/send] Capturing source message hash...');
     const capturedRecord = await captureMessage(client, source.id);
