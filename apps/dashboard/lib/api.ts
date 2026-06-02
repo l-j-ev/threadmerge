@@ -26,5 +26,6 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     const text = await res.text();
     throw new Error(`Backend ${res.status}: ${text}`);
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
