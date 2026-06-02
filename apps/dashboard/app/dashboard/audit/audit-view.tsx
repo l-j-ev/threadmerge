@@ -165,7 +165,8 @@ export function AuditView({
               <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-400">No entries match.</td></tr>
             ) : (
               filtered.map((r) => (
-                <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50">
+                <tr key={r.id} onClick={() => router.push(`/dashboard/audit/${r.id}`)}
+                    className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer">
                   <td className="px-3 py-2 whitespace-nowrap text-gray-700">{fmt(r.timestamp)}</td>
                   <td className="px-3 py-2">
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${

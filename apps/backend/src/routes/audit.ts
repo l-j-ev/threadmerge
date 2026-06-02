@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { requireAuth, AuthedRequest } from '../middleware/auth';
 import { prisma } from '../lib/db';
+import { buildVerifyUrl } from '../lib/hashing';
 
 export const auditRouter = Router();
 
@@ -42,7 +43,10 @@ auditRouter.get('/', requireAuth, async (req: AuthedRequest, res: Response) => {
 auditRouter.get('/:id', requireAuth, async (req: AuthedRequest, res: Response) => {
   const log = await prisma.auditLogEntry.findUnique({
     where: { id: req.params.id },
-    include: { user: { select: { email: true, displayName: true } } },
+    include: {
+      user: { select: { email: true, displayName: true } },
+      capturedMessages: { orderBy: { capturedAt: 'asc' } },
+    },
   });
 
   if (!log) {
@@ -59,5 +63,12 @@ auditRouter.get('/:id', requireAuth, async (req: AuthedRequest, res: Response) =
     return;
   }
 
-  res.json(log);
+  const enriched = {
+    ...log,
+    capturedMessages: log.capturedMessages.map((m) => ({
+      ...m,
+      verifyUrl: buildVerifyUrl(m.contentHash),
+    })),
+  };
+  res.json(enriched);
 });
