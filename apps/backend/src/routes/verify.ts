@@ -10,7 +10,7 @@ export const verifyRouter = Router();
  */
 verifyRouter.get('/api/verify/:hash', async (req: Request, res: Response) => {
   try {
-    const hash = req.params.hash.trim().toLowerCase();
+    const hash = String(req.params.hash).trim().toLowerCase();
 
     // Basic format check - SHA-256 hex is 64 chars
     if (!/^[a-f0-9]{64}$/.test(hash)) {
@@ -47,7 +47,7 @@ verifyRouter.get('/api/verify/:hash', async (req: Request, res: Response) => {
  * Minimal styling, no PII, no external dependencies.
  */
 verifyRouter.get('/verify/:hash', async (req: Request, res: Response) => {
-  const hash = req.params.hash.trim().toLowerCase();
+  const hash = String(req.params.hash).trim().toLowerCase();
   const isValidFormat = /^[a-f0-9]{64}$/.test(hash);
 
   let valid = false;

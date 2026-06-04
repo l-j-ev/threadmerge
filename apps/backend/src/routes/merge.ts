@@ -45,8 +45,8 @@ mergeRouter.post('/preview', requireAuth, async (req: AuthedRequest, res: Respon
         );
 
   const mergedBody = buildMergedBody(orderedMessages, body.redactions);
-  const recipients = collectRecipients(orderedMessages, body.recipients);
   const userEmail = req.user!.email;
+  const recipients = collectRecipients(orderedMessages, userEmail);
   const { internal, external } = classifyRecipients(recipients, userEmail);
   const warnings = detectWarnings(orderedMessages, recipients, userEmail);
 

@@ -37,7 +37,7 @@ messagesRouter.get('/recent', requireAuth, async (req: AuthedRequest, res: Respo
 messagesRouter.get('/:id', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const client = getGraphClient(req.graphToken!);
-    const m = await getMessageDetail(client, req.params.id);
+    const m = await getMessageDetail(client, String(req.params.id));
 
     const detail: MessageDetail = {
       id: m.id,

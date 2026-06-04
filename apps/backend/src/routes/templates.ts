@@ -66,7 +66,7 @@ templatesRouter.put('/:id', requireAuth, async (req: AuthedRequest, res: Respons
     where: { azureUserId: req.user!.azureUserId },
   });
 
-  const template = await prisma.template.findUnique({ where: { id: req.params.id } });
+  const template = await prisma.template.findUnique({ where: { id: String(req.params.id) } });
   if (!template) {
     res.status(404).json({ error: 'Template not found' });
     return;
@@ -77,7 +77,7 @@ templatesRouter.put('/:id', requireAuth, async (req: AuthedRequest, res: Respons
   }
 
   const updated = await prisma.template.update({
-    where: { id: req.params.id },
+    where: { id: String(req.params.id) },
     data: {
       name: req.body.name,
       description: req.body.description,
@@ -97,7 +97,7 @@ templatesRouter.delete('/:id', requireAuth, async (req: AuthedRequest, res: Resp
     where: { azureUserId: req.user!.azureUserId },
   });
 
-  const template = await prisma.template.findUnique({ where: { id: req.params.id } });
+  const template = await prisma.template.findUnique({ where: { id: String(req.params.id) } });
   if (!template) {
     res.status(404).json({ error: 'Template not found' });
     return;
@@ -107,6 +107,6 @@ templatesRouter.delete('/:id', requireAuth, async (req: AuthedRequest, res: Resp
     return;
   }
 
-  await prisma.template.delete({ where: { id: req.params.id } });
+  await prisma.template.delete({ where: { id: String(req.params.id) } });
   res.status(204).send();
 });

@@ -42,7 +42,7 @@ auditRouter.get('/', requireAuth, async (req: AuthedRequest, res: Response) => {
  */
 auditRouter.get('/:id', requireAuth, async (req: AuthedRequest, res: Response) => {
   const log = await prisma.auditLogEntry.findUnique({
-    where: { id: req.params.id },
+    where: { id: String(req.params.id) },
     include: {
       user: { select: { email: true, displayName: true } },
       capturedMessages: { orderBy: { capturedAt: 'asc' } },
