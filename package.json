@@ -2,7 +2,7 @@
   "name": "threadmerge",
   "version": "0.1.0",
   "private": true,
-  "description": "ThreadMerge — Outlook add-in for merging email threads with controlled disclosure",
+  "description": "ThreadMerge \u2014 Outlook add-in for merging email threads with controlled disclosure",
   "scripts": {
     "dev:addin": "pnpm --filter @threadmerge/addin dev",
     "dev:dashboard": "pnpm --filter @threadmerge/dashboard dev",
@@ -12,7 +12,7 @@
     "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "engines": {
-    "node": ">=20",
+    "node": ">=24",
     "pnpm": ">=9"
   },
   "packageManager": "pnpm@9.0.0"
