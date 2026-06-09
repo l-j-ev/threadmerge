@@ -1,4 +1,10 @@
 {
   "cleanUrls": false,
-  "trailingSlash": false
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/taskpane",      "destination": "/taskpane.html" },
+    { "source": "/commands",      "destination": "/commands.html" },
+    { "source": "/auth-start",    "destination": "/auth-start.html" },
+    { "source": "/auth-redirect", "destination": "/auth-redirect.html" }
+  ]
 }
