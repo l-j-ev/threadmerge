@@ -13,6 +13,15 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    rollupOptions: {
+      input: {
+        index: path.resolve(__dirname, 'index.html'),
+        taskpane: path.resolve(__dirname, 'taskpane.html'),
+        commands: path.resolve(__dirname, 'commands.html'),
+        'auth-start': path.resolve(__dirname, 'auth-start.html'),
+        'auth-redirect': path.resolve(__dirname, 'auth-redirect.html'),
+      },
+    },
   },
   resolve: {
     alias: {
