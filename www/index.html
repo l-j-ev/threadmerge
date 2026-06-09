@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nootro — Unlock new abilities for your inbox</title>
+<meta name="description" content="Nootro is an Outlook add-in that unlocks new abilities for your inbox: merge threads, share selectively, prove authenticity & forward like never before." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#102018;
+    --ink-soft:#3a4a40;
+    --mute:#5f6f65;
+    --paper:#eef3ee;
+    --paper-2:#e6ede7;
+    --card:#ffffff;
+    --green:#00c600;
+    --green-bright:#52ff52;
+    --green-forest:#0c3b2a;
+    --green-deep:#073122;
+    --line:rgba(16,32,24,.12);
+    --line-strong:rgba(16,32,24,.22);
+    --shadow:0 1px 2px rgba(16,32,24,.04), 0 12px 32px -12px rgba(12,59,42,.18);
+    --shadow-lg:0 2px 4px rgba(16,32,24,.05), 0 40px 80px -24px rgba(12,59,42,.30);
+    --r:14px;
+    --maxw:1140px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    font-size:17px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--green-bright);color:var(--ink)}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:12px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--green-forest);
+    display:inline-flex;align-items:center;gap:9px;
+  }
+  .eyebrow::before{content:"";width:18px;height:1.5px;background:var(--green);display:inline-block}
+
+  /* ---- buttons ---- */
+  .btn{
+    display:inline-flex;align-items:center;gap:9px;
+    font-family:"IBM Plex Sans";font-size:15px;font-weight:600;
+    padding:13px 22px;border-radius:10px;border:1.5px solid transparent;
+    cursor:pointer;transition:transform .15s ease, background .15s ease, box-shadow .15s ease, border-color .15s ease;
+    white-space:nowrap;
+  }
+  .btn-primary{background:var(--green);color:#06200a;box-shadow:0 1px 0 rgba(255,255,255,.4) inset, 0 8px 20px -8px rgba(0,198,0,.6)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.5) inset, 0 14px 28px -10px rgba(0,198,0,.7)}
+  .btn-ghost{border-color:var(--line-strong);color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--ink);background:rgba(16,32,24,.03)}
+  .btn-lg{padding:16px 28px;font-size:16px}
+  .btn:focus-visible,a:focus-visible{outline:3px solid var(--green);outline-offset:3px;border-radius:6px}
+
+  /* ---- nav ---- */
+  header.nav{
+    position:sticky;top:0;z-index:50;
+    background:rgba(238,243,238,.82);
+    backdrop-filter:saturate(140%) blur(12px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:68px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:600;font-size:20px;letter-spacing:-.01em}
+  .brand svg{width:30px;height:auto;display:block;filter:drop-shadow(0 2px 5px rgba(0,198,0,.35))}
+  .nav-links{display:flex;align-items:center;gap:10px}
+  .nav-links .lnk{font-size:15px;font-weight:500;padding:9px 12px;border-radius:8px;color:var(--ink-soft)}
+  .nav-links .lnk:hover{color:var(--ink);background:rgba(16,32,24,.04)}
+
+  /* ---- hero ---- */
+  .hero{position:relative;padding:84px 0 76px}
+  .hero-glow{
+    position:absolute;top:-120px;right:-60px;width:680px;height:680px;
+    background:radial-gradient(circle at 60% 40%, rgba(82,255,82,.30), rgba(0,198,0,.10) 38%, transparent 66%);
+    filter:blur(8px);pointer-events:none;z-index:0;
+  }
+  .hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+  .hero h1{
+    font-size:clamp(38px,5vw,62px);line-height:1.04;letter-spacing:-.025em;font-weight:600;
+    margin:22px 0 0;
+  }
+  .hero h1 .ink-green{color:var(--green-forest)}
+  .hero p.lead{font-size:clamp(17px,2vw,20px);color:var(--ink-soft);max-width:30em;margin:22px 0 0}
+  .hero-cta{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap}
+  .hero-micro{margin-top:26px;font-size:13.5px;color:var(--mute);display:flex;align-items:center;gap:8px}
+  .hero-micro .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(0,198,0,.18)}
+
+  /* ---- the seal / signature artifact ---- */
+  .seal-card{
+    position:relative;background:var(--card);border:1px solid var(--line);
+    border-radius:18px;box-shadow:var(--shadow-lg);padding:26px;
+  }
+  .seal-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:18px;border-bottom:1px dashed var(--line-strong)}
+  .seal-head .from{font-size:13px;line-height:1.5}
+  .seal-head .from b{font-weight:600}
+  .seal-head .from span{color:var(--mute)}
+  .pill{font-family:"IBM Plex Mono";font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--green-forest);background:rgba(0,198,0,.10);border:1px solid rgba(0,198,0,.30);padding:5px 9px;border-radius:999px;white-space:nowrap}
+  .seal-body{display:flex;align-items:center;gap:20px;padding:26px 4px 22px}
+  .stamp{
+    flex:none;width:96px;height:96px;border-radius:18px;
+    background:radial-gradient(circle at 50% 38%, rgba(82,255,82,.22), transparent 70%), var(--card);
+    border:2px solid var(--green);display:grid;place-items:center;position:relative;
+    box-shadow:0 10px 24px -10px rgba(0,198,0,.5);
+  }
+  .stamp svg{width:54px;height:auto;filter:drop-shadow(0 2px 4px rgba(0,198,0,.3))}
+  .stamp::after{content:"VERIFIED";position:absolute;bottom:8px;font-family:"IBM Plex Mono";font-size:8.5px;letter-spacing:.16em;color:var(--green-forest)}
+  .seal-meta{min-width:0}
+  .seal-meta .label{font-family:"IBM Plex Mono";font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+  .seal-meta .val{font-family:"IBM Plex Mono";font-size:13px;color:var(--ink);word-break:break-all;line-height:1.5}
+  .seal-meta .row{margin-top:12px}
+  .seal-meta .row:first-child{margin-top:0}
+  .seal-foot{border-top:1px solid var(--line);padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .seal-foot .vlink{font-family:"IBM Plex Mono";font-size:12.5px;color:var(--green-forest)}
+  .seal-foot .vlink u{text-decoration-color:var(--green)}
+  .check{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--green-forest)}
+  .check svg{width:18px;height:18px}
+
+  /* ---- hero abilities flow (mirrors the strapline) ---- */
+  .flow-card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-lg);overflow:hidden}
+  .flow-chrome{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--paper-2)}
+  .flow-chrome .dots{display:flex;gap:6px}
+  .flow-chrome .dots i{width:10px;height:10px;border-radius:50%;background:var(--line-strong)}
+  .flow-chrome .title{font-family:"IBM Plex Mono";font-size:11.5px;letter-spacing:.07em;color:var(--mute);margin-left:auto}
+  .flow-steps{position:relative;padding:18px 22px 20px}
+  .flow-steps::before{content:"";position:absolute;left:42px;top:42px;bottom:46px;width:2px;background:linear-gradient(var(--green),rgba(0,198,0,.22));border-radius:2px}
+  .flow-step{position:relative;display:grid;grid-template-columns:40px 1fr;gap:16px;align-items:start;padding:11px 0}
+  .flow-tile{width:40px;height:40px;border-radius:11px;background:rgba(0,198,0,.10);border:1px solid rgba(0,198,0,.30);display:grid;place-items:center;z-index:1}
+  .flow-tile svg{width:20px;height:20px;stroke:var(--green-forest);stroke-width:1.8;fill:none}
+  .flow-tile.leaf{background:radial-gradient(circle at 50% 38%,rgba(82,255,82,.25),transparent 70%),var(--card);border-color:var(--green);box-shadow:0 6px 16px -8px rgba(0,198,0,.5)}
+  .flow-tile.leaf svg{width:25px;height:auto;stroke:none}
+  .flow-body h4{font-size:15px;font-weight:600;letter-spacing:-.01em}
+  .flow-body p{font-size:13px;color:var(--ink-soft);margin-top:2px;line-height:1.5}
+  .flow-vis{margin-top:8px}
+  .redact{display:flex;gap:5px;align-items:center}
+  .redact i{height:9px;border-radius:2px;background:var(--ink);opacity:.16}
+  .redact i.a{width:46px}.redact i.b{width:30px;background:var(--green);opacity:.55}.redact i.c{width:58px}.redact i.d{width:22px}
+  .flow-seal{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:"IBM Plex Mono";font-size:11.5px}
+  .flow-seal .hash{color:var(--ink-soft)}
+  .flow-seal .ok{display:inline-flex;align-items:center;gap:5px;color:var(--green-forest);font-weight:600}
+  .flow-seal .ok svg{width:14px;height:14px;stroke:var(--green-forest);stroke-width:2.6;fill:none}
+  .fwd{display:inline-flex;align-items:center;gap:7px;font-family:"IBM Plex Mono";font-size:11.5px;color:var(--ink-soft)}
+  .fwd .to{background:rgba(0,198,0,.10);border:1px solid rgba(0,198,0,.28);color:var(--green-forest);padding:2px 8px;border-radius:999px}
+
+  /* ---- trust strip ---- */
+  .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--paper-2)}
+  .strip-in{display:flex;flex-wrap:wrap;gap:14px 38px;align-items:center;justify-content:center;padding:20px 0}
+  .strip span{font-family:"IBM Plex Mono";font-size:12.5px;letter-spacing:.04em;color:var(--ink-soft);display:inline-flex;align-items:center;gap:9px}
+  .strip span::before{content:"";width:6px;height:6px;background:var(--green);border-radius:1px;transform:rotate(45deg)}
+
+  /* ---- section scaffolding ---- */
+  section.block{padding:96px 0}
+  .sec-head{max-width:40rem}
+  .sec-head h2{font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-.02em;font-weight:600;margin:16px 0 0}
+  .sec-head p{color:var(--ink-soft);margin-top:14px;font-size:18px}
+
+  /* ---- how it works ---- */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:52px}
+  .step{position:relative;padding:28px 24px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+  .step .num{font-family:"IBM Plex Mono";font-size:13px;font-weight:500;color:var(--green-forest);letter-spacing:.1em}
+  .step .num b{color:var(--green)}
+  .step h3{font-size:19px;font-weight:600;margin:16px 0 8px;letter-spacing:-.01em}
+  .step p{font-size:15px;color:var(--ink-soft);line-height:1.6}
+  .step .bar{height:3px;width:34px;background:var(--green);border-radius:2px;margin-top:18px}
+
+  /* ---- features ---- */
+  .feat-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:48px}
+  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:26px 24px;box-shadow:var(--shadow);transition:transform .18s ease, box-shadow .18s ease}
+  .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+  .card .ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:rgba(0,198,0,.10);border:1px solid rgba(0,198,0,.28);color:var(--green-forest)}
+  .card .ic svg{width:20px;height:20px;stroke:var(--green-forest);stroke-width:1.8;fill:none}
+  .card h3{font-size:18px;font-weight:600;margin:18px 0 8px;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+  .card p{font-size:14.5px;color:var(--ink-soft);line-height:1.6}
+  .tag-soon{font-family:"IBM Plex Mono";font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);border:1px solid var(--line-strong);padding:3px 7px;border-radius:999px}
+
+  /* ---- privacy / hash-only split ---- */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
+  .split .codecard{background:var(--green-deep);border-radius:18px;padding:30px;box-shadow:var(--shadow-lg);color:#cfe9d8}
+  .split .codecard .barrow{display:flex;gap:7px;margin-bottom:20px}
+  .split .codecard .barrow i{width:11px;height:11px;border-radius:50%;background:rgba(207,233,216,.25)}
+  .split .codecard pre{font-family:"IBM Plex Mono";font-size:13px;line-height:1.85;white-space:pre-wrap;word-break:break-all;margin:0}
+  .split .codecard .k{color:#7df09a}
+  .split .codecard .c{color:#6f8a7c}
+  .split .codecard .h{color:#eafff0}
+  .split ul.plain{list-style:none;margin-top:24px;display:grid;gap:14px}
+  .split ul.plain li{display:flex;gap:12px;font-size:15.5px;color:var(--ink-soft)}
+  .split ul.plain li svg{flex:none;width:20px;height:20px;margin-top:2px}
+
+  /* ---- verify showcase ---- */
+  .verify-wrap{display:grid;grid-template-columns:.9fr 1.1fr;gap:56px;align-items:center}
+  .vresult{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-lg);overflow:hidden}
+  .vresult .top{background:var(--green-forest);color:#eafff0;padding:18px 24px;display:flex;align-items:center;gap:12px;font-family:"IBM Plex Mono";font-size:13px;letter-spacing:.04em}
+  .vresult .top .u{opacity:.7}
+  .vresult .mid{padding:34px 28px;text-align:center}
+  .vbig{width:74px;height:74px;border-radius:50%;background:radial-gradient(circle at 50% 40%,rgba(82,255,82,.3),transparent 70%);border:2.5px solid var(--green);display:grid;place-items:center;margin:0 auto 18px}
+  .vbig svg{width:38px;height:38px;stroke:var(--green-forest);stroke-width:2.4;fill:none}
+  .vresult h4{font-size:22px;font-weight:600;letter-spacing:-.01em}
+  .vresult .sub{color:var(--mute);font-size:14px;margin-top:6px}
+  .vresult .fp{margin-top:22px;padding-top:20px;border-top:1px dashed var(--line-strong);font-family:"IBM Plex Mono";font-size:12px;color:var(--ink-soft);word-break:break-all;line-height:1.6;text-align:left}
+  .vresult .fp .label{color:var(--mute);letter-spacing:.12em;text-transform:uppercase;font-size:10px;display:block;margin-bottom:6px}
+
+  /* ---- final cta ---- */
+  .cta-band{background:linear-gradient(160deg,var(--green-forest),var(--green-deep));color:#eafff0;border-radius:24px;padding:64px 56px;text-align:center;position:relative;overflow:hidden;box-shadow:var(--shadow-lg)}
+  .cta-band::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% -10%,rgba(82,255,82,.22),transparent 55%);pointer-events:none}
+  .cta-band h2{position:relative;font-size:clamp(28px,3.6vw,42px);line-height:1.1;letter-spacing:-.02em;font-weight:600}
+  .cta-band p{position:relative;color:#a9d4ba;margin:16px auto 0;max-width:34em;font-size:17px}
+  .cta-band .hero-cta{position:relative;justify-content:center;margin-top:32px}
+  .cta-band .btn-ghost{border-color:rgba(234,255,240,.35);color:#eafff0}
+  .cta-band .btn-ghost:hover{border-color:#eafff0;background:rgba(234,255,240,.08)}
+  .cta-band .note{position:relative;margin-top:20px;font-family:"IBM Plex Mono";font-size:12px;letter-spacing:.04em;color:#7fb796}
+
+  /* ---- footer ---- */
+  footer{border-top:1px solid var(--line);padding:64px 0 40px;margin-top:8px}
+  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:40px}
+  .foot-brand .brand{margin-bottom:14px}
+  .foot-brand p{font-size:14px;color:var(--mute);max-width:24em}
+  .foot-col h5{font-family:"IBM Plex Mono";font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:14px}
+  .foot-col a{display:block;font-size:14.5px;color:var(--ink-soft);padding:5px 0}
+  .foot-col a:hover{color:var(--green-forest)}
+  .foot-bottom{margin-top:48px;padding-top:24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+  .foot-bottom .fp{font-family:"IBM Plex Mono";font-size:11.5px;color:var(--mute);word-break:break-all}
+  .foot-bottom .cp{font-size:13px;color:var(--mute)}
+
+  /* ---- reveal animation ---- */
+  .reveal{opacity:0;transform:translateY(18px);transition:opacity .7s ease, transform .7s ease}
+  .reveal.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+
+  /* ---- responsive ---- */
+  @media (max-width:900px){
+    .hero-grid,.split,.verify-wrap{grid-template-columns:1fr;gap:40px}
+    .steps,.grid{grid-template-columns:1fr 1fr}
+    .foot-grid{grid-template-columns:1fr 1fr}
+    .hero{padding:60px 0 56px}
+    section.block{padding:72px 0}
+    .nav-links .lnk.hide-sm{display:none}
+  }
+  @media (max-width:560px){
+    .steps,.grid,.foot-grid{grid-template-columns:1fr}
+    .cta-band{padding:48px 28px}
+    .seal-body{flex-direction:column;align-items:flex-start}
+    .wrap{padding:0 20px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="Nootro home">
+      <svg viewBox="0 32 158 97" role="img" aria-label="Nootro leaf"><path fill="#52FF52" d="M95.7,34.74c-14.29,0-29.49,4.13-29.49,4.13-30.87,8.13-46.55,30.84-46.55,30.84C1.13,93.08,2.03,126.66,2.03,126.66h61.32c31.49-.46,48.6-11.18,48.6-11.18,24.67-12.46,35.06-34.05,35.06-34.05,8.72-13.71,11.01-46.69,11.01-46.69h-62.32ZM103.44,68.39c-8.12,12.13-20.86,20.29-38.23,24.48l-9.96,2.4c.43-.72.82-1.45,1.29-2.16,8.16-12.21,20.87-20.39,38.12-24.54l10.13-2.44c-.45.76-.85,1.53-1.35,2.27Z"/><path fill="#00C600" d="M56.54,93.01c8.16-12.2,20.87-20.38,38.12-24.54l9.81-2.36,53.24-31.37h-62.2c-14.27,0-29.42,4.12-29.42,4.12-30.81,8.12-46.45,30.78-46.45,30.78C1.14,92.96,2.04,126.47,2.04,126.47l53.27-31.39c.41-.69.78-1.39,1.23-2.06Z"/></svg>
+      Nootro
+    </a>
+    <nav class="nav-links">
+      <a class="lnk hide-sm" href="#how">How it works</a>
+      <a class="lnk hide-sm" href="#features">Features</a>
+      <a class="lnk hide-sm" href="https://verify.nootro.ai">Verify</a>
+      <a class="lnk" href="https://app.nootro.ai">Sign in</a>
+      <a class="btn btn-primary" href="mailto:hello@nootro.ai?subject=Nootro%20access">Request access</a>
+    </nav>
+  </div>
+</header>
+
+<a id="top"></a>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="wrap hero-grid">
+    <div class="reveal">
+      <span class="eyebrow">Outlook add&#8209;in &middot; Microsoft 365</span>
+      <h1>Unlock <span class="ink-green">new abilities</span> for your inbox.</h1>
+      <p class="lead">Merge threads, share selectively, prove authenticity &amp; forward like never before, all without leaving Outlook.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="mailto:hello@nootro.ai?subject=Nootro%20access">Request access</a>
+        <a class="btn btn-ghost btn-lg" href="#how">See how it works</a>
+      </div>
+      <div class="hero-micro"><span class="dot" aria-hidden="true"></span> Runs inside Outlook. Signs in through your own Microsoft 365 tenant.</div>
+    </div>
+
+    <!-- signature artifact: the four abilities, as a message's journey through Nootro -->
+    <div class="reveal flow-card" role="img" aria-label="The four abilities Nootro adds in Outlook: merge threads, share selectively, prove authenticity, and forward verifiably">
+      <div class="flow-chrome">
+        <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+        <span class="title">nootro &middot; outlook</span>
+      </div>
+      <div class="flow-steps">
+
+        <div class="flow-step">
+          <div class="flow-tile" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 4v4a5 5 0 005 5h9" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 20v-4a5 5 0 015-5" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 10l3 3-3 3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="flow-body">
+            <h4>Merge threads</h4>
+            <p>Two conversations into one clean, ordered thread.</p>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-tile" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7c-1.6 0-3-.4-4.2-1" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 4l16 16" stroke-linecap="round"/></svg></div>
+          <div class="flow-body">
+            <h4>Share selectively</h4>
+            <p>Redact what stays private. Send only what you choose.</p>
+            <div class="flow-vis redact" aria-hidden="true"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i></div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-tile leaf" aria-hidden="true"><svg viewBox="0 32 158 97"><path fill="#52FF52" d="M95.7,34.74c-14.29,0-29.49,4.13-29.49,4.13-30.87,8.13-46.55,30.84-46.55,30.84C1.13,93.08,2.03,126.66,2.03,126.66h61.32c31.49-.46,48.6-11.18,48.6-11.18,24.67-12.46,35.06-34.05,35.06-34.05,8.72-13.71,11.01-46.69,11.01-46.69h-62.32ZM103.44,68.39c-8.12,12.13-20.86,20.29-38.23,24.48l-9.96,2.4c.43-.72.82-1.45,1.29-2.16,8.16-12.21,20.87-20.39,38.12-24.54l10.13-2.44c-.45.76-.85,1.53-1.35,2.27Z"/><path fill="#00C600" d="M56.54,93.01c8.16-12.2,20.87-20.38,38.12-24.54l9.81-2.36,53.24-31.37h-62.2c-14.27,0-29.42,4.12-29.42,4.12-30.81,8.12-46.45,30.78-46.45,30.78C1.14,92.96,2.04,126.47,2.04,126.47l53.27-31.39c.41-.69.78-1.39,1.23-2.06Z"/></svg></div>
+          <div class="flow-body">
+            <h4>Prove authenticity</h4>
+            <p>A SHA&#8209;256 seal recipients can check for themselves.</p>
+            <div class="flow-vis flow-seal">
+              <span class="hash">sha256 e087&hellip;bd5b</span>
+              <span class="ok"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg> sealed</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-tile" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h14" stroke-linecap="round"/><path d="M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="flow-body">
+            <h4>Forward like never before</h4>
+            <p>Out to anyone, verifiable the moment it lands.</p>
+            <div class="flow-vis fwd"><span>to</span> <span class="to">client@acme.com</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TRUST STRIP ============ -->
+<div class="strip">
+  <div class="wrap strip-in">
+    <span>Outlook &amp; Microsoft 365 native</span>
+    <span>SHA&#8209;256 verification</span>
+    <span>Azure AD single sign&#8209;on</span>
+    <span>Every share audit&#8209;logged</span>
+    <span>Hash&#8209;only storage</span>
+  </div>
+</div>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="block" id="how">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">How it works</span>
+      <h2>Three steps, all inside Outlook.</h2>
+      <p>No new inbox, no portal to forward into. Nootro lives in the compose window you already use.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="num"><b>01</b> / Compose &amp; control</div>
+        <h3>Merge a thread, redact the rest</h3>
+        <p>Pull two threads together or forward one. Strip out what stays private, &amp; decide exactly what each recipient is allowed to see.</p>
+        <div class="bar"></div>
+      </div>
+      <div class="step reveal">
+        <div class="num"><b>02</b> / Send with a seal</div>
+        <h3>Fingerprint, then send</h3>
+        <p>Nootro takes a SHA&#8209;256 fingerprint of the message &amp; embeds a verify badge before it ever leaves your outbox.</p>
+        <div class="bar"></div>
+      </div>
+      <div class="step reveal">
+        <div class="num"><b>03</b> / Recipients verify</div>
+        <h3>Proof, on their side</h3>
+        <p>Anyone who receives it can confirm on verify.nootro.ai that the content is authentic &amp; nothing was changed in transit.</p>
+        <div class="bar"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section class="block" id="features" style="padding-top:0">
+  <div class="wrap">
+    <div class="feat-head reveal">
+      <div class="sec-head">
+        <span class="eyebrow">What's inside</span>
+        <h2>Controlled sharing, with proof built in.</h2>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 4.5-3 7.5-8 9-5-1.5-8-4.5-8-9V7l8-4z"/></svg></div>
+        <h3>Controlled disclosure</h3>
+        <p>Decide what each recipient can see &amp; redact everything else. The thread leaves your outbox showing only what you chose.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0110 0v3"/><rect x="4" y="11" width="16" height="9" rx="2"/></svg></div>
+        <h3>Cryptographic verification</h3>
+        <p>Every share carries a SHA&#8209;256 fingerprint your recipients can check independently. No login, no trust in us required.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg></div>
+        <h3>Audit trail</h3>
+        <p>Who shared what, with whom, &amp; when. Every send is logged for your tenant &amp; exports to CSV in a click.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h6"/></svg></div>
+        <h3>Reusable templates</h3>
+        <p>Save the redaction rules &amp; share patterns your team uses again &amp; again, so controlled sharing stays one click.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></div>
+        <h3>Hash&#8209;only storage</h3>
+        <p>We keep a fingerprint of what you shared, never the email itself. Enough to prove authenticity, &amp; nothing more.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v6c0 5-4 8-9 9-5-1-9-4-9-9V7z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg></div>
+        <h3>BEC detection <span class="tag-soon">Coming</span></h3>
+        <p>Flag business&#8209;email&#8209;compromise patterns before a forged thread spreads. On the roadmap &amp; in design now.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HASH-ONLY / PRIVACY ============ -->
+<section class="block" style="padding-top:0">
+  <div class="wrap split">
+    <div class="reveal">
+      <span class="eyebrow">What we store</span>
+      <h2 style="font-size:clamp(26px,3.2vw,38px);line-height:1.12;letter-spacing:-.02em;font-weight:600;margin-top:16px">A fingerprint, not your email.</h2>
+      <ul class="plain">
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#00c600" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> Your message content never lands in our database. We store a one&#8209;way SHA&#8209;256 hash: a fingerprint that can confirm a match but can't be reversed back into the email.</li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#00c600" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> Sign&#8209;in runs through your own Microsoft 365 tenant over Azure AD. Nootro acts on your behalf, never around you.</li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#00c600" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> Recipients verify against the fingerprint alone. The verification page reveals authenticity, never the contents.</li>
+      </ul>
+    </div>
+    <div class="reveal codecard" aria-hidden="true">
+      <div class="barrow"><i></i><i></i><i></i></div>
+      <pre><span class="c"># what leaves your outbox</span>
+<span class="k">message</span>   = "Re: Q3 supplier contract..."
+<span class="k">recipients</span> = ["client@acme.com"]
+
+<span class="c"># what Nootro keeps</span>
+<span class="k">fingerprint</span> = sha256(message)
+            = <span class="h">711edcf37ac00d35
+              9ca8f35234c06481
+              31ddd1b7bd3d63e9
+              b915499c5d7af85e</span>
+
+<span class="c"># what we never keep</span>
+<span class="k">message_body</span>  = <span class="h">&lt;discarded&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ============ VERIFY SHOWCASE ============ -->
+<section class="block" style="padding-top:0">
+  <div class="wrap verify-wrap">
+    <div class="reveal">
+      <span class="eyebrow">For recipients</span>
+      <h2 style="font-size:clamp(26px,3.2vw,38px);line-height:1.12;letter-spacing:-.02em;font-weight:600;margin-top:16px">Anyone can check. No account needed.</h2>
+      <p style="color:var(--ink-soft);margin-top:16px;font-size:17px">Every Nootro share carries a link to <b>verify.nootro.ai</b>. Recipients click it &amp; get a plain answer: is this authentic, &amp; was anything changed. No sign&#8209;up, no software, no peek at content they shouldn't see.</p>
+      <a class="btn btn-ghost btn-lg" href="https://verify.nootro.ai" style="margin-top:26px">Open the verifier</a>
+    </div>
+    <div class="reveal vresult" role="img" aria-label="The Nootro verification result page confirming a message is authentic">
+      <div class="top"><span class="u">verify.nootro.ai/</span>711e&hellip;f85e</div>
+      <div class="mid">
+        <div class="vbig" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h4>This message is verified</h4>
+        <div class="sub">Authentic &amp; unaltered since it was sealed.</div>
+        <div class="fp">
+          <span class="label">Fingerprint matched</span>
+          711edcf37ac00d359ca8f35234c0648131ddd1b7bd3d63e9b915499c5d7af85e<br><br>
+          <span class="label">Captured</span>
+          2026&#8209;06&#8209;09 21:44 UTC &middot; no content stored
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="block" style="padding-top:0">
+  <div class="wrap">
+    <div class="cta-band reveal">
+      <h2>Ready to unlock your inbox?</h2>
+      <p>Nootro is onboarding a small group of design partners on Microsoft 365. If controlled, verifiable email sharing is a problem you have, we'd like to hear from you.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="mailto:hello@nootro.ai?subject=Nootro%20access">Request access</a>
+        <a class="btn btn-ghost btn-lg" href="https://app.nootro.ai">Sign in</a>
+      </div>
+      <div class="note">Currently onboarding design partners &middot; built for Outlook</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#top">
+          <svg viewBox="0 32 158 97" aria-hidden="true"><path fill="#52FF52" d="M95.7,34.74c-14.29,0-29.49,4.13-29.49,4.13-30.87,8.13-46.55,30.84-46.55,30.84C1.13,93.08,2.03,126.66,2.03,126.66h61.32c31.49-.46,48.6-11.18,48.6-11.18,24.67-12.46,35.06-34.05,35.06-34.05,8.72-13.71,11.01-46.69,11.01-46.69h-62.32ZM103.44,68.39c-8.12,12.13-20.86,20.29-38.23,24.48l-9.96,2.4c.43-.72.82-1.45,1.29-2.16,8.16-12.21,20.87-20.39,38.12-24.54l10.13-2.44c-.45.76-.85,1.53-1.35,2.27Z"/><path fill="#00C600" d="M56.54,93.01c8.16-12.2,20.87-20.38,38.12-24.54l9.81-2.36,53.24-31.37h-62.2c-14.27,0-29.42,4.12-29.42,4.12-30.81,8.12-46.45,30.78-46.45,30.78C1.14,92.96,2.04,126.47,2.04,126.47l53.27-31.39c.41-.69.78-1.39,1.23-2.06Z"/></svg>
+          Nootro
+        </a>
+        <p>Controlled email sharing with cryptographic verification, built for Outlook &amp; Microsoft 365.</p>
+      </div>
+      <div class="foot-col">
+        <h5>Product</h5>
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="https://app.nootro.ai">Sign in</a>
+        <a href="https://verify.nootro.ai">Verify a message</a>
+      </div>
+      <div class="foot-col">
+        <h5>Get started</h5>
+        <a href="mailto:hello@nootro.ai?subject=Nootro%20access">Request access</a>
+        <a href="mailto:hello@nootro.ai">Contact</a>
+        <a href="#top">Back to top</a>
+      </div>
+      <div class="foot-col">
+        <h5>Legal</h5>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span class="cp">&copy; 2026 Nootro. All rights reserved.</span>
+      <span class="fp">verified&#8209;by&#8209;design &middot; sha256:75567459debc6d30&hellip;1f01471a</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // scroll reveal (respects reduced motion via CSS)
+  (function(){
+    var els = document.querySelectorAll('.reveal');
+    if(!('IntersectionObserver' in window)){els.forEach(function(e){e.classList.add('in')});return;}
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target);} });
+    },{threshold:.12, rootMargin:'0px 0px -40px 0px'});
+    els.forEach(function(e){io.observe(e)});
+  })();
+</script>
+</body>
+</html>

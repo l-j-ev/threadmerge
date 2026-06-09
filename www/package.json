@@ -1,0 +1,7 @@
+{
+  "name": "nootro-landing",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": { "start": "serve . -l ${PORT:-8080}" },
+  "dependencies": { "serve": "^14.2.6" }
+}
