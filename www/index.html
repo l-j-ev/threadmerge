@@ -134,10 +134,10 @@
   .flow-chrome .dots{display:flex;gap:6px}
   .flow-chrome .dots i{width:10px;height:10px;border-radius:50%;background:var(--line-strong)}
   .flow-chrome .title{font-family:"IBM Plex Mono";font-size:11.5px;letter-spacing:.07em;color:var(--mute);margin-left:auto}
-  .flow-steps{position:relative;padding:18px 22px 20px}
-  .flow-steps::before{content:"";position:absolute;left:42px;top:42px;bottom:46px;width:2px;background:linear-gradient(var(--green),rgba(0,198,0,.22));border-radius:2px}
+  .flow-steps{position:relative;z-index:0;padding:18px 22px 20px}
+  .flow-steps::before{content:"";position:absolute;z-index:-1;left:42px;top:42px;bottom:46px;width:2px;background:linear-gradient(var(--green),rgba(0,198,0,.22));border-radius:2px}
   .flow-step{position:relative;display:grid;grid-template-columns:40px 1fr;gap:16px;align-items:start;padding:11px 0}
-  .flow-tile{width:40px;height:40px;border-radius:11px;background:rgba(0,198,0,.10);border:1px solid rgba(0,198,0,.30);display:grid;place-items:center;z-index:1}
+  .flow-tile{width:40px;height:40px;border-radius:11px;background:#e6f9e6;border:1px solid rgba(0,198,0,.30);display:grid;place-items:center;position:relative;z-index:1}
   .flow-tile svg{width:20px;height:20px;stroke:var(--green-forest);stroke-width:1.8;fill:none}
   .flow-tile.leaf{background:radial-gradient(circle at 50% 38%,rgba(82,255,82,.25),transparent 70%),var(--card);border-color:var(--green);box-shadow:0 6px 16px -8px rgba(0,198,0,.5)}
   .flow-tile.leaf svg{width:25px;height:auto;stroke:none}
