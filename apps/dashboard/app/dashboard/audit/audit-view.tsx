@@ -170,7 +170,7 @@ export function AuditView({
                   <td className="px-3 py-2 whitespace-nowrap text-gray-700">{fmt(r.timestamp)}</td>
                   <td className="px-3 py-2">
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                      r.mode === 'inject' ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800'
+                      r.mode === 'inject' ? 'bg-[rgba(255,176,46,0.12)] text-[#ffb02e] border border-[rgba(255,176,46,0.28)]' : 'bg-[rgba(82,255,82,0.10)] text-[#52ff52] border border-[rgba(82,255,82,0.28)]'
                     }`}>{r.mode}</span>
                   </td>
                   <td className="px-3 py-2 max-w-xs truncate text-gray-800" title={subjectOf(r)}>{subjectOf(r)}</td>

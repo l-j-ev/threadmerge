@@ -96,7 +96,7 @@ export default async function AuditDetailPage({ params }: { params: { id: string
           <div className="p-5 bg-white border border-gray-200 rounded">
             <div className="flex items-center gap-3 mb-4">
               <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                entry.mode === 'inject' ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800'
+                entry.mode === 'inject' ? 'bg-[rgba(255,176,46,0.12)] text-[#ffb02e] border border-[rgba(255,176,46,0.28)]' : 'bg-[rgba(82,255,82,0.10)] text-[#52ff52] border border-[rgba(82,255,82,0.28)]'
               }`}>{entry.mode}</span>
               <h2 className="text-lg font-medium text-gray-900">{entry.subject || '\u2014'}</h2>
             </div>
