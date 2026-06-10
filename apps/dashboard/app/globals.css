@@ -2,6 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #050b07;
+  --bg-2: #081209;
+  --ink: #eafff0;
+  --ink-soft: #a7c4b2;
+  --mute: #6f8a7a;
+  --green: #00c600;
+  --green-bright: #52ff52;
+  --green-deep: #0a2e16;
+  --glow: rgba(82, 255, 82, 0.5);
+  --line: rgba(82, 255, 82, 0.12);
+  --line-strong: rgba(82, 255, 82, 0.24);
+  --card: rgba(255, 255, 255, 0.025);
+  --card-solid: #0a150d;
+}
+
+html {
+  background: var(--bg);
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  font-family: var(--font-poppins), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 300;
+  color: var(--ink);
+  background: var(--bg);
+  min-height: 100vh;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ambient luminous-green wash, sits behind all content */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 600px at 80% -10%, rgba(0, 198, 0, 0.10), transparent 60%),
+    radial-gradient(700px 700px at -10% 40%, rgba(0, 198, 0, 0.05), transparent 60%);
+}
+
+h1, h2, h3 {
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: var(--green-bright);
+  color: #04140a;
+}
+
+/* ---------------------------------------------------------------------------
+   Transitional bridge. The gray ramp + brand remap (tailwind.config) flip
+   almost everything; bg-white is the one light surface not in those scales.
+   Remove this block view-by-view as each view gets proper dark styling.
+--------------------------------------------------------------------------- */
+@layer utilities {
+  .bg-white {
+    background-color: var(--card-solid) !important;
+  }
 }
