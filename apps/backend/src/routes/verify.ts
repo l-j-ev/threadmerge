@@ -44,7 +44,7 @@ verifyRouter.get('/api/verify/:hash', async (req: Request, res: Response) => {
 /**
  * GET /verify/:hash
  * Public HTML page - what recipients see when they click a verify link.
- * Minimal styling, no PII, no external dependencies.
+ * Self-contained: no external fonts/scripts, no PII. Nootro dark theme.
  */
 verifyRouter.get('/verify/:hash', async (req: Request, res: Response) => {
   const hash = String(req.params.hash).trim().toLowerCase();
@@ -82,139 +82,122 @@ verifyRouter.get('/verify/:hash', async (req: Request, res: Response) => {
       })
     : null;
 
+  // Nootro leaf mark (inline, tight viewBox)
+  const leaf = `<svg viewBox="0 32 158 97" aria-hidden="true"><path fill="#52FF52" d="M95.7,34.74c-14.29,0-29.49,4.13-29.49,4.13-30.87,8.13-46.55,30.84-46.55,30.84C1.13,93.08,2.03,126.66,2.03,126.66h61.32c31.49-.46,48.6-11.18,48.6-11.18,24.67-12.46,35.06-34.05,35.06-34.05,8.72-13.71,11.01-46.69,11.01-46.69h-62.32ZM103.44,68.39c-8.12,12.13-20.86,20.29-38.23,24.48l-9.96,2.4c.43-.72.82-1.45,1.29-2.16,8.16-12.21,20.87-20.39,38.12-24.54l10.13-2.44c-.45.76-.85,1.53-1.35,2.27Z"/><path fill="#00C600" d="M56.54,93.01c8.16-12.2,20.87-20.38,38.12-24.54l9.81-2.36,53.24-31.37h-62.2c-14.27,0-29.42,4.12-29.42,4.12-30.81,8.12-46.45,30.78-46.45,30.78C1.14,92.96,2.04,126.47,2.04,126.47l53.27-31.39c.41-.69.78-1.39,1.23-2.06Z"/></svg>`;
+
+  const body = valid
+    ? `
+      <div class="emblem ok">
+        <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h1 class="status">This message is verified</h1>
+      <p class="sub">This fingerprint matches a message sealed by Nootro. The quoted content has not been altered since it was captured.</p>
+      <div class="detail">
+        <div class="row"><span class="label">Captured</span><span class="val">${formattedDate}</span></div>
+        <div class="row"><span class="label">Fingerprint</span><span class="val">${shortHash}</span></div>
+      </div>`
+    : `
+      <div class="emblem no">
+        <svg viewBox="0 0 24 24"><path d="M12 4l9 16H3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 10v4" stroke-linecap="round"/><path d="M12 17.5v.01" stroke-linecap="round"/></svg>
+      </div>
+      <h1 class="status">Not verified</h1>
+      <p class="sub">${
+        isValidFormat
+          ? `This fingerprint doesn't match any message sealed by Nootro. The content may have been altered, or it was never captured by us.`
+          : `This doesn't look like a valid verification link. Check the link you clicked.`
+      }</p>
+      <div class="detail">
+        <div class="row"><span class="label">Fingerprint checked</span><span class="val">${shortHash}</span></div>
+      </div>`;
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${valid ? 'Verified' : 'Not Found'} — Nootro</title>
+  <title>${valid ? 'Verified' : 'Not verified'} — Nootro</title>
   <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: #f7f8fa;
-      color: #1a1a1a;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#050b07;--ink:#eafff0;--ink-soft:#a7c4b2;--mute:#6f8a7a;
+      --green:#00c600;--green-bright:#52ff52;--green-deep:#0a2e16;--glow:rgba(82,255,82,.5);
+      --warn:#ffb02e;--warn-glow:rgba(255,176,46,.4);
+      --line:rgba(82,255,82,.12);--line-strong:rgba(82,255,82,.24);--card:#0a150d;
     }
-    .card {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.06);
-      padding: 40px;
-      max-width: 480px;
-      width: 100%;
+    body{
+      font-family:"Poppins",-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+      background:var(--bg);color:var(--ink);min-height:100vh;font-weight:300;line-height:1.6;
+      display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden;
+      -webkit-font-smoothing:antialiased;
     }
-    .brand {
-      font-size: 14px;
-      font-weight: 600;
-      color: #5b6cff;
-      letter-spacing: 0.02em;
-      margin-bottom: 24px;
+    body::before{
+      content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:
+        radial-gradient(720px 520px at 50% -12%, rgba(0,198,0,.13), transparent 60%),
+        radial-gradient(620px 620px at 92% 108%, rgba(0,198,0,.05), transparent 60%);
     }
-    .status {
-      font-size: 28px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      letter-spacing: -0.02em;
+    .wrap{position:relative;z-index:1;width:100%;max-width:460px}
+    .brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:22px;font-weight:600;font-size:18px;letter-spacing:-.02em;color:var(--ink)}
+    .brand svg{width:26px;height:auto;display:block;filter:drop-shadow(0 0 11px rgba(82,255,82,.45))}
+    .card{
+      background:var(--card);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;
+      box-shadow:0 30px 80px -30px rgba(0,0,0,.85), 0 0 60px -22px rgba(0,198,0,.30);
     }
-    .status.valid { color: #0a8a3a; }
-    .status.invalid { color: #b34238; }
-    .icon {
-      font-size: 48px;
-      line-height: 1;
-      margin-bottom: 12px;
+    .top{
+      display:flex;align-items:center;gap:10px;padding:15px 22px;font-size:12.5px;letter-spacing:.03em;
+      border-bottom:1px solid var(--line);background:linear-gradient(90deg, var(--green-deep), #06200d);
+      color:var(--ink-soft);word-break:break-all;
     }
-    .message {
-      font-size: 15px;
-      line-height: 1.6;
-      color: #4a4a4a;
-      margin-bottom: 24px;
+    .top .u{color:var(--mute)}
+    .mid{padding:42px 32px}
+    .emblem{width:88px;height:88px;border-radius:50%;margin:0 auto 24px;display:grid;place-items:center}
+    .emblem svg{width:42px;height:42px;fill:none;stroke-width:2.4}
+    .emblem.ok{
+      border:2px solid var(--green-bright);
+      background:radial-gradient(circle at 50% 38%, rgba(82,255,82,.20), transparent 72%);
+      box-shadow:0 0 40px -6px var(--glow), inset 0 0 26px rgba(82,255,82,.12);
+      animation:pulse 3s ease-in-out infinite;
     }
-    .detail {
-      background: #f7f8fa;
-      border-radius: 8px;
-      padding: 16px;
-      font-size: 13px;
-      color: #4a4a4a;
-      margin-top: 24px;
+    .emblem.ok svg{stroke:var(--green-bright)}
+    .emblem.no{
+      border:2px solid var(--warn);
+      background:radial-gradient(circle at 50% 38%, rgba(255,176,46,.16), transparent 72%);
+      box-shadow:0 0 40px -8px var(--warn-glow), inset 0 0 26px rgba(255,176,46,.10);
     }
-    .detail-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 4px 0;
+    .emblem.no svg{stroke:var(--warn)}
+    @keyframes pulse{
+      0%,100%{box-shadow:0 0 40px -6px var(--glow), inset 0 0 26px rgba(82,255,82,.12)}
+      50%{box-shadow:0 0 56px -4px var(--glow), inset 0 0 32px rgba(82,255,82,.18)}
     }
-    .detail-label {
-      color: #888;
-      font-weight: 500;
+    @media (prefers-reduced-motion:reduce){.emblem.ok{animation:none}}
+    .status{text-align:center;font-size:23px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+    .sub{text-align:center;color:var(--ink-soft);font-size:14px;margin-top:11px;font-weight:300;line-height:1.65}
+    .detail{
+      margin-top:28px;padding-top:22px;border-top:1px dashed var(--line-strong);
+      font-size:12px;color:var(--ink-soft);letter-spacing:.02em;
     }
-    .detail-value {
-      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-      font-size: 12px;
+    .detail .row{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:6px 0}
+    .detail .label{color:var(--mute);text-transform:uppercase;letter-spacing:.15em;font-size:9.5px;font-weight:500;flex:none}
+    .detail .val{font-variant-numeric:tabular-nums;color:var(--ink);word-break:break-all;text-align:right}
+    .footer{
+      padding:20px 26px 24px;border-top:1px solid var(--line);background:rgba(82,255,82,.02);
+      font-size:11.5px;color:var(--mute);line-height:1.7;font-weight:300;
     }
-    .footer {
-      margin-top: 32px;
-      padding-top: 20px;
-      border-top: 1px solid #eee;
-      font-size: 12px;
-      color: #888;
-      line-height: 1.5;
-    }
-    .footer a { color: #5b6cff; text-decoration: none; }
+    .footer a{color:var(--green-bright);text-decoration:none}
+    .footer a:hover{text-decoration:underline}
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="brand">NOOTRO</div>
-    ${
-      valid
-        ? `
-      <div class="icon">🔒</div>
-      <div class="status valid">Verified</div>
-      <p class="message">
-        This hash matches a message captured by Nootro. The quoted content
-        has not been tampered with since capture.
-      </p>
-      <div class="detail">
-        <div class="detail-row">
-          <span class="detail-label">Captured</span>
-          <span>${formattedDate}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Hash</span>
-          <span class="detail-value">${shortHash}</span>
-        </div>
+  <div class="wrap">
+    <div class="brand">${leaf} Nootro</div>
+    <div class="card">
+      <div class="top"><span class="u">verify.nootro.ai/</span>${shortHash}</div>
+      <div class="mid">${body}</div>
+      <div class="footer">
+        Nootro provides cryptographic proof that quoted email content matches the original message at the time of capture. We don't reveal senders, recipients, or content, only whether a fingerprint is valid.
+        <br><br>
+        <a href="https://nootro.ai">nootro.ai</a>
       </div>
-    `
-        : `
-      <div class="icon">⚠️</div>
-      <div class="status invalid">Not found</div>
-      <p class="message">
-        ${
-          isValidFormat
-            ? `This hash doesn't match any message captured by Nootro. The content may have been altered, or it was never captured by us.`
-            : `This doesn't look like a valid verification hash. Check the link you clicked.`
-        }
-      </p>
-      <div class="detail">
-        <div class="detail-row">
-          <span class="detail-label">Hash checked</span>
-          <span class="detail-value">${shortHash}</span>
-        </div>
-      </div>
-    `
-    }
-    <div class="footer">
-      Nootro provides cryptographic proof that quoted email content matches
-      the original message at the time of capture. We don't share information
-      about senders, recipients, or content — only that a hash is valid.
-      <br><br>
-      <a href="https://nootro.ai">nootro.ai</a>
     </div>
   </div>
 </body>
